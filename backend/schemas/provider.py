@@ -127,10 +127,3 @@ class ProviderFilters(BaseModel):
     # status / is_active are honoured only for admin listings (public_only=False)
     status: ProviderStatus | None = None
     is_active: bool | None = None
-
-
-class ProviderListResponse(BaseModel):
-    items: list[ProviderPublicResponse]
-    total: int
-    page: int
-    page_size: int

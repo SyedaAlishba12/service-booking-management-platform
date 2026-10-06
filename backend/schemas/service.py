@@ -80,8 +80,7 @@ class ServiceFilters(BaseModel):
         return self
 
 
-class ServiceListResponse(BaseModel):
-    items: list[ServicePublicResponse]
-    total: int
-    page: int
-    page_size: int
+class ServiceStatusUpdate(BaseModel):
+    """Provider enables / disables (soft delete) their own service."""
+
+    is_active: bool
