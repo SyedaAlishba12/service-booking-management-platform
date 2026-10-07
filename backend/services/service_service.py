@@ -53,7 +53,7 @@ async def update_service(
     for field, value in data.model_dump(exclude_unset=True).items():
         if value is None and field in _REQUIRED_FIELDS:
             raise HTTPException(
-                status.HTTP_422_UNPROCESSABLE_ENTITY, f"{field} cannot be empty"
+                422, f"{field} cannot be empty"
             )
         setattr(service, field, value)
     repo = ServiceRepository(session)
