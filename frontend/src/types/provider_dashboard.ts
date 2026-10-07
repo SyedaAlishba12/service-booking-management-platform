@@ -32,6 +32,7 @@ export interface ProviderDashboardExtras {
   customers: CustomerSummary;
   rating: RatingSummary;
   activity: DashboardActivity[];
+  is_sample?: boolean;
 }
 
 /** One customer review shown to the provider (Taha's review API). */

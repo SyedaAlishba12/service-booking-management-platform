@@ -67,7 +67,7 @@ export default function ProviderDashboardPage() {
     const stats: DashboardStat[] = [
       { label: "Today's appointments", value: String(bookings.today_count), detail: `${bookings.today_remaining} still to come` },
       { label: "Upcoming bookings", value: String(bookings.upcoming_count), detail: `${bookings.pending_count} waiting for confirmation` },
-      { label: "Earnings this month", value: formatMoney(earnings.this_month), detail: "Sample data", trend: earnings.this_month >= earnings.last_month ? "up" : "down" },
+      { label: "Earnings this month", value: formatMoney(earnings.this_month), detail: extras.data.is_sample ? "Sample data" : "After platform commission", trend: earnings.this_month >= earnings.last_month ? "up" : "down" },
       { label: "Average rating", value: rating.average.toFixed(1), detail: `${rating.total} reviews` },
     ];
 
@@ -95,7 +95,7 @@ export default function ProviderDashboardPage() {
           <div className="xl:col-span-2">
             <UpcomingSchedule bookings={bookings.upcoming} viewAllHref="/dashboard/bookings" />
           </div>
-          <RecentActivity activity={activity} />
+          <RecentActivity activity={activity} sample={extras.data.is_sample} />
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
@@ -107,9 +107,9 @@ export default function ProviderDashboardPage() {
               {noProfile ? "Create your profile to set availability." : "Loading availability..."}
             </div>
           )}
-          <EarningsSummaryCard earnings={earnings} />
-          <CustomersSummaryCard customers={customers} />
-          <RatingSummaryCard rating={rating} />
+          <EarningsSummaryCard earnings={earnings} sample={extras.data.is_sample} />
+          <CustomersSummaryCard customers={customers} sample={extras.data.is_sample} />
+          <RatingSummaryCard rating={rating} sample={extras.data.is_sample} />
         </div>
 
         <QuickActions actions={QUICK_ACTIONS} />

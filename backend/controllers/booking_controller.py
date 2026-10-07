@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from common.auth_stub import CurrentUser
 from common.responses import ApiResponse, ok, paginated
-from models.booking import Booking, BookingStatus
+from models.booking import Booking, BookingStatus, Payment
 from models.customer import Customer
 from models.provider import Provider
 from models.service import Service
@@ -22,19 +22,22 @@ async def _booking_responses(session: AsyncSession, bookings: list[Booking]) -> 
         return []
     ids = [booking.id for booking in bookings]
     labels = (await session.execute(
-        select(Booking.id, Service.name, Provider.business_name, User.full_name)
+        select(Booking.id, Service.name, Provider.business_name, User.full_name, Provider.timezone, Payment.status)
         .join(Service, Service.id == Booking.service_id)
         .join(Provider, Provider.id == Booking.provider_id)
         .join(Customer, Customer.id == Booking.customer_id)
         .join(User, User.id == Customer.user_id)
+        .outerjoin(Payment, Payment.booking_id == Booking.id)
         .where(Booking.id.in_(ids))
     )).all()
-    by_id = {row[0]: (row[1], row[2], row[3]) for row in labels}
+    by_id = {row[0]: (row[1], row[2], row[3], row[4], row[5]) for row in labels}
     return [
         BookingResponse.model_validate(booking).model_copy(update={
             "service_name": by_id[booking.id][0],
             "provider_name": by_id[booking.id][1],
             "customer_name": by_id[booking.id][2],
+            "provider_timezone": by_id[booking.id][3],
+            "payment_status": by_id[booking.id][4],
         })
         for booking in bookings
     ]

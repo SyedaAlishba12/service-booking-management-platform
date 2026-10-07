@@ -14,6 +14,25 @@ export interface Booking {
   service_name?: string | null;
   provider_name?: string | null;
   customer_name?: string | null;
+  provider_timezone?: string | null;
+  payment_status?: "PENDING" | "PAID" | "FAILED" | "REFUNDED" | null;
+}
+
+export interface PublicProvider {
+  id: string;
+  business_name: string;
+  city: string | null;
+  location: string;
+  timezone?: string;
+}
+
+export interface PublicService {
+  id: string;
+  provider_id: string;
+  name: string;
+  price: string | number;
+  duration_minutes: number;
+  provider: PublicProvider;
 }
 
 export interface ProviderCustomer {

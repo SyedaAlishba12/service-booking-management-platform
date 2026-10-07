@@ -56,6 +56,8 @@ class BookingResponse(BaseModel):
     service_name: str | None = None
     provider_name: str | None = None
     customer_name: str | None = None
+    provider_timezone: str | None = None
+    payment_status: PaymentStatus | None = None
 
 
 class SlotResponse(BaseModel):

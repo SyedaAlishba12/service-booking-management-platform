@@ -1,12 +1,15 @@
 import { Card } from "@/components/ui/Card";
+import Badge from "@/components/ui/Badge";
 import type { DashboardActivity } from "@/types/dashboard";
 
 interface RecentActivityProps {
   activity: DashboardActivity[];
+  sample?: boolean;
 }
 
 export default function RecentActivity({
   activity,
+  sample = false,
 }: RecentActivityProps) {
   return (
     <Card className="h-full overflow-hidden">
@@ -18,6 +21,7 @@ export default function RecentActivity({
         <h2 className="mt-1 text-xl font-bold tracking-tight text-foreground">
           Recent activity
         </h2>
+        {sample && <Badge variant="warning">Sample data</Badge>}
       </div>
 
       <div className="p-5 md:p-6">

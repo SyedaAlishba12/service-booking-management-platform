@@ -75,10 +75,10 @@ export function AvailabilitySummaryCard({ availability }: { availability: Provid
   );
 }
 
-export function EarningsSummaryCard({ earnings }: { earnings: EarningsSummary }) {
+export function EarningsSummaryCard({ earnings, sample = false }: { earnings: EarningsSummary; sample?: boolean }) {
   const change = earnings.last_month > 0 ? ((earnings.this_month - earnings.last_month) / earnings.last_month) * 100 : null;
   return (
-    <SummaryShell eyebrow="Earnings" title="This month" href="/dashboard/earnings" linkLabel="View earnings" sample>
+    <SummaryShell eyebrow="Earnings" title="This month" href="/dashboard/earnings" linkLabel="View earnings" sample={sample}>
       <p className="text-3xl font-bold tracking-tight text-foreground">{formatMoney(earnings.this_month)}</p>
       <Row label="Last month" value={formatMoney(earnings.last_month)} />
       {change !== null && (
@@ -88,18 +88,18 @@ export function EarningsSummaryCard({ earnings }: { earnings: EarningsSummary })
   );
 }
 
-export function CustomersSummaryCard({ customers }: { customers: CustomerSummary }) {
+export function CustomersSummaryCard({ customers, sample = false }: { customers: CustomerSummary; sample?: boolean }) {
   return (
-    <SummaryShell eyebrow="Customers" title="Your customers" href="/dashboard/customers" linkLabel="View customers" sample>
+    <SummaryShell eyebrow="Customers" title="Your customers" href="/dashboard/customers" linkLabel="View customers" sample={sample}>
       <Row label="Total customers" value={customers.total} />
       <Row label="Returning" value={customers.returning} />
     </SummaryShell>
   );
 }
 
-export function RatingSummaryCard({ rating }: { rating: RatingSummary }) {
+export function RatingSummaryCard({ rating, sample = false }: { rating: RatingSummary; sample?: boolean }) {
   return (
-    <SummaryShell eyebrow="Reviews" title="Your rating" href="/dashboard/reviews" linkLabel="Read reviews" sample>
+    <SummaryShell eyebrow="Reviews" title="Your rating" href="/dashboard/reviews" linkLabel="Read reviews" sample={sample}>
       <div className="flex items-center gap-3">
         <p className="text-3xl font-bold tracking-tight text-foreground">{rating.average.toFixed(1)}</p>
         <Rating value={rating.average} count={rating.total} size="sm" showValue={false} />

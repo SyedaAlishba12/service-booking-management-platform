@@ -308,6 +308,7 @@ async def get_upcoming_appointments_for_reminders(session: AsyncSession, from_at
             "booking_id": booking.id,
             "customer_user_id": await session.scalar(select(Customer.user_id).where(Customer.id == booking.customer_id)),
             "provider_user_id": await session.scalar(select(Provider.user_id).where(Provider.id == booking.provider_id)),
+            "provider_timezone": await session.scalar(select(Provider.timezone).where(Provider.id == booking.provider_id)),
             "provider_id": booking.provider_id, "service_id": booking.service_id,
             "start_at": booking.start_at, "end_at": booking.end_at,
         })
@@ -321,7 +322,11 @@ async def send_appointment_reminders(session: AsyncSession, from_at: datetime, t
     appointments = await get_upcoming_appointments_for_reminders(session, from_at, to_at)
     sent = 0
     for appointment in appointments:
-        start_label = appointment["start_at"].isoformat()
+        try:
+            local_start = appointment["start_at"].astimezone(ZoneInfo(appointment["provider_timezone"] or "UTC"))
+        except ZoneInfoNotFoundError:
+            local_start = appointment["start_at"].astimezone(UTC)
+        start_label = local_start.strftime("%A, %B %d at %I:%M %p %Z")
         for user_id in {appointment["customer_user_id"], appointment["provider_user_id"]} - {None}:
             exists = await session.scalar(select(Notification.id).where(
                 Notification.user_id == user_id,
