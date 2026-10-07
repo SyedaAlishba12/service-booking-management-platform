@@ -20,9 +20,11 @@ export const SERVICE_TYPE_LABELS: Record<ServiceType, string> = {
  * TODO: Syeda should export this list from one shared place so it is not copied.
  */
 export const PROVIDER_SIDEBAR_ITEMS = [
-  { label: "Dashboard", href: "/dashboard" },
+  { label: "Dashboard", href: "/provider/dashboard" },
   { label: "Calendar", href: "/dashboard/calendar" },
   { label: "Bookings", href: "/dashboard/bookings" },
+  { label: "Earnings", href: "/dashboard/earnings" },
+  { label: "Customers", href: "/dashboard/customers" },
   { label: "Services", href: "/dashboard/services" },
   { label: "Providers", href: "/dashboard/providers" },
   { label: "Reviews", href: "/dashboard/reviews" },
