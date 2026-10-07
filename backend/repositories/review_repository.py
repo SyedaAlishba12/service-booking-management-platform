@@ -140,6 +140,49 @@ async def list_admin(
     return list(result.scalars().all())
 
 
+async def count_by_provider_visible(
+    db: AsyncSession,
+    provider_id: uuid.UUID,
+) -> int:
+    result = await db.execute(
+        select(func.count(Review.id))
+        .where(
+            and_(
+                Review.provider_id == provider_id,
+                Review.is_visible.is_(True),
+            )
+        )
+    )
+    return result.scalar_one()
+
+
+async def count_by_user(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+) -> int:
+    result = await db.execute(
+        select(func.count(Review.id)).where(Review.user_id == user_id)
+    )
+    return result.scalar_one()
+
+
+async def count_admin(
+    db: AsyncSession,
+    provider_id: uuid.UUID | None = None,
+    rating: int | None = None,
+    is_visible: bool | None = None,
+) -> int:
+    stmt = select(func.count(Review.id))
+    if provider_id is not None:
+        stmt = stmt.where(Review.provider_id == provider_id)
+    if rating is not None:
+        stmt = stmt.where(Review.rating == rating)
+    if is_visible is not None:
+        stmt = stmt.where(Review.is_visible.is_(is_visible))
+    result = await db.execute(stmt)
+    return result.scalar_one()
+
+
 # ---------------------------------------------------------------------------
 # Aggregate queries  (visible reviews only)
 # ---------------------------------------------------------------------------

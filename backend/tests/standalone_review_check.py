@@ -316,7 +316,7 @@ async def test_admin_hide_removes_from_public_and_rating(db: AsyncSession):
     assert review is not None
 
     # Confirm it appears in public list before hiding
-    public_before = await svc.list_provider_reviews(db, PROVIDER_1)
+    public_before, _ = await svc.list_provider_reviews(db, PROVIDER_1)
     ids_before = [r.id for r in public_before]
     assert review.id in ids_before, "review should be in public list before hide"
 
@@ -324,7 +324,7 @@ async def test_admin_hide_removes_from_public_and_rating(db: AsyncSession):
     await svc.set_visibility(db, review.id, False)
 
     # Must not appear in public list after hiding
-    public_after = await svc.list_provider_reviews(db, PROVIDER_1)
+    public_after, _ = await svc.list_provider_reviews(db, PROVIDER_1)
     ids_after = [r.id for r in public_after]
     assert review.id not in ids_after, "hidden review should not appear in public list"
 
@@ -349,7 +349,7 @@ async def test_admin_unhide_restores_both(db: AsyncSession):
 
     await svc.set_visibility(db, review.id, True)
 
-    public_after = await svc.list_provider_reviews(db, PROVIDER_1)
+    public_after, _ = await svc.list_provider_reviews(db, PROVIDER_1)
     assert review.id in [r.id for r in public_after], "unhidden review not in public list"
 
     total_after = (await svc.get_rating_summary(db, PROVIDER_1))["total_reviews"]
@@ -446,6 +446,45 @@ async def test_notification_hook_failure_does_not_fail_creation(db: AsyncSession
         svc_module._notify_provider_new_review = original_hook
 
 
+async def test_pagination_provider_visible_reviews(db: AsyncSession):
+    label = "pagination: provider visible reviews slices correctly and handles visibility"
+    from sqlalchemy import delete
+    await db.execute(delete(Review))
+    await db.commit()
+    
+    provider_id = uuid.uuid4()
+    set_eligibility_provider(make_fake_provider(provider_id=provider_id))
+    
+    reviews = []
+    for i in range(5):
+        c = ReviewCreate(booking_id=uuid.uuid4(), rating=5, comment=f"p{i}")
+        r = await svc.create_review(db, USER_A, c)
+        reviews.append(r)
+
+    p1, total = await svc.list_provider_reviews(db, provider_id, page=1, page_size=2)
+    assert len(p1) == 2
+    assert total == 5
+
+    p2, total2 = await svc.list_provider_reviews(db, provider_id, page=2, page_size=2)
+    assert len(p2) == 2
+    assert total2 == 5
+    assert {r.id for r in p1}.isdisjoint({r.id for r in p2})
+
+    p3, total3 = await svc.list_provider_reviews(db, provider_id, page=3, page_size=2)
+    assert len(p3) == 1
+    assert total3 == 5
+
+    p4, total4 = await svc.list_provider_reviews(db, provider_id, page=4, page_size=2)
+    assert len(p4) == 0
+    assert total4 == 5
+
+    # hide one review
+    await svc.set_visibility(db, reviews[0].id, False)
+    
+    p1_hidden, total_hidden = await svc.list_provider_reviews(db, provider_id, page=1, page_size=2)
+    assert total_hidden == 4
+    ok(label)
+
 # ---------------------------------------------------------------------------
 # Main runner — tests share one DB session (sequential, order matters)
 # ---------------------------------------------------------------------------
@@ -470,6 +509,7 @@ TESTS = [
     test_batch_summaries_include_zero_provider,
     test_min_rating_filter,
     test_notification_hook_failure_does_not_fail_creation,
+    test_pagination_provider_visible_reviews
 ]
 
 

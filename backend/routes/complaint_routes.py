@@ -14,9 +14,9 @@ from models.complaint import ComplaintStatus, ComplaintType
 from schemas.complaint import (
     ComplaintAdminUpdate,
     ComplaintCreate,
-    ComplaintDetailResponse,
-    ComplaintListResponse,
+    ComplaintResponse,
 )
+from common.responses import ApiResponse, PaginatedData
 
 
 complaints_router = APIRouter(prefix="/api/complaints", tags=["complaints"])
@@ -31,17 +31,17 @@ async def create_complaint(
     return await ctrl.create_complaint(db, user_id, payload)
 
 
-@complaints_router.get("/me", response_model=ComplaintListResponse)
+@complaints_router.get("/me", response_model=ApiResponse[PaginatedData[ComplaintResponse]])
 async def list_my_complaints(
     db: AsyncSession = Depends(get_db),
     user_id: uuid.UUID = Depends(get_current_user_id),
-    limit: int = Query(default=20, ge=1, le=100),
-    offset: int = Query(default=0, ge=0),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(12, ge=1, le=100),
 ):
-    return await ctrl.list_my_complaints(db, user_id, limit, offset)
+    return await ctrl.list_my_complaints(db, user_id, page, page_size)
 
 
-@complaints_router.get("/{id}", response_model=ComplaintDetailResponse)
+@complaints_router.get("/{id}", response_model=ApiResponse[ComplaintResponse])
 async def get_my_complaint(
     id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
@@ -57,21 +57,21 @@ admin_router = APIRouter(
 )
 
 
-@admin_router.get("", response_model=ComplaintListResponse)
+@admin_router.get("", response_model=ApiResponse[PaginatedData[ComplaintResponse]])
 async def list_admin_complaints(
     db: AsyncSession = Depends(get_db),
     status: ComplaintStatus | None = Query(default=None),
     complaint_type: ComplaintType | None = Query(default=None),
     provider_id: uuid.UUID | None = Query(default=None),
-    limit: int = Query(default=20, ge=1, le=100),
-    offset: int = Query(default=0, ge=0),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(12, ge=1, le=100),
 ):
     return await ctrl.list_admin_complaints(
-        db, status, complaint_type, provider_id, limit, offset
+        db, status, complaint_type, provider_id, page, page_size
     )
 
 
-@admin_router.get("/{id}", response_model=ComplaintDetailResponse)
+@admin_router.get("/{id}", response_model=ApiResponse[ComplaintResponse])
 async def get_admin_complaint(
     id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
@@ -79,7 +79,7 @@ async def get_admin_complaint(
     return await ctrl.get_admin_complaint(db, id)
 
 
-@admin_router.put("/{id}", response_model=ComplaintDetailResponse)
+@admin_router.put("/{id}", response_model=ApiResponse[ComplaintResponse])
 async def update_complaint_status(
     id: uuid.UUID,
     payload: ComplaintAdminUpdate,

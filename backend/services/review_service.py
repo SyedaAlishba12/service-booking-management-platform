@@ -241,21 +241,27 @@ async def delete_review(
 async def list_provider_reviews(
     db: AsyncSession,
     provider_id: uuid.UUID,
-    limit: int = 20,
-    offset: int = 0,
-) -> list[Review]:
+    page: int = 1,
+    page_size: int = 12,
+) -> tuple[list[Review], int]:
     """Return visible reviews for a provider (public endpoint)."""
-    return await repo.list_by_provider_visible(db, provider_id, limit, offset)
+    offset = (page - 1) * page_size
+    items = await repo.list_by_provider_visible(db, provider_id, page_size, offset)
+    total = await repo.count_by_provider_visible(db, provider_id)
+    return items, total
 
 
 async def list_my_reviews(
     db: AsyncSession,
     user_id: uuid.UUID,
-    limit: int = 20,
-    offset: int = 0,
-) -> list[Review]:
+    page: int = 1,
+    page_size: int = 12,
+) -> tuple[list[Review], int]:
     """Return all reviews written by the current user."""
-    return await repo.list_by_user(db, user_id, limit, offset)
+    offset = (page - 1) * page_size
+    items = await repo.list_by_user(db, user_id, page_size, offset)
+    total = await repo.count_by_user(db, user_id)
+    return items, total
 
 
 # ---------------------------------------------------------------------------
@@ -268,11 +274,14 @@ async def list_admin_reviews(
     provider_id: uuid.UUID | None = None,
     rating: int | None = None,
     is_visible: bool | None = None,
-    limit: int = 20,
-    offset: int = 0,
-) -> list[Review]:
+    page: int = 1,
+    page_size: int = 12,
+) -> tuple[list[Review], int]:
     """Return reviews with optional filters (admin only)."""
-    return await repo.list_admin(db, provider_id, rating, is_visible, limit, offset)
+    offset = (page - 1) * page_size
+    items = await repo.list_admin(db, provider_id, rating, is_visible, page_size, offset)
+    total = await repo.count_admin(db, provider_id, rating, is_visible)
+    return items, total
 
 
 async def set_visibility(

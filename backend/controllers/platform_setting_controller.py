@@ -15,7 +15,8 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import services.platform_setting_service as svc
-from common.response import error_response, success_response
+from common.response import error_response
+from common.responses import ok
 from schemas.platform_setting import SettingResponse, SettingUpdate
 
 
@@ -40,7 +41,7 @@ def _serialise_list(objs) -> list[dict]:
 
 async def list_public_settings(db: AsyncSession):
     settings = await svc.list_public_settings(db)
-    return success_response(
+    return ok(
         data=_serialise_list(settings),
         message="Settings retrieved successfully",
     )
@@ -53,7 +54,7 @@ async def list_public_settings(db: AsyncSession):
 
 async def list_all_settings(db: AsyncSession):
     settings = await svc.list_settings(db)
-    return success_response(
+    return ok(
         data=_serialise_list(settings),
         message="Settings retrieved successfully",
     )
@@ -67,7 +68,7 @@ async def get_setting(db: AsyncSession, key: str):
             status_code=status.HTTP_404_NOT_FOUND,
             content=error_response(exc.message),
         )
-    return success_response(
+    return ok(
         data=_serialise(setting),
         message="Setting retrieved successfully",
     )
@@ -93,7 +94,7 @@ async def update_setting(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             content=error_response(exc.message),
         )
-    return success_response(
+    return ok(
         data=_serialise(setting),
         message="Setting updated successfully",
     )

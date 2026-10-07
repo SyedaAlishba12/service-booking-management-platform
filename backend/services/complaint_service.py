@@ -73,9 +73,12 @@ async def get_my_complaint(
 
 
 async def list_my_complaints(
-    db: AsyncSession, user_id: uuid.UUID, limit: int = 20, offset: int = 0
-) -> list[Complaint]:
-    return await repo.list_by_user(db, user_id, limit, offset)
+    db: AsyncSession, user_id: uuid.UUID, page: int, page_size: int
+) -> tuple[list[Complaint], int]:
+    offset = (page - 1) * page_size
+    items = await repo.list_by_user(db, user_id, page_size, offset)
+    total = await repo.count_by_user(db, user_id)
+    return items, total
 
 
 async def list_admin_complaints(
@@ -83,10 +86,13 @@ async def list_admin_complaints(
     status: ComplaintStatus | None = None,
     complaint_type: ComplaintType | None = None,
     provider_id: uuid.UUID | None = None,
-    limit: int = 20,
-    offset: int = 0,
-) -> list[Complaint]:
-    return await repo.list_admin(db, status, complaint_type, provider_id, limit, offset)
+    page: int = 1,
+    page_size: int = 12,
+) -> tuple[list[Complaint], int]:
+    offset = (page - 1) * page_size
+    items = await repo.list_admin(db, status, complaint_type, provider_id, page_size, offset)
+    total = await repo.count_admin(db, status, complaint_type, provider_id)
+    return items, total
 
 
 async def get_admin_complaint(db: AsyncSession, complaint_id: uuid.UUID) -> Complaint:
