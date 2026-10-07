@@ -89,7 +89,7 @@ async def update_provider(
             "buffer_minutes",
         }:
             raise HTTPException(
-                status.HTTP_422_UNPROCESSABLE_ENTITY, f"{field} cannot be empty"
+                422, f"{field} cannot be empty"
             )
         setattr(provider, field, value)
     await repo.save(provider)
@@ -121,7 +121,7 @@ async def set_provider_status(
     """Admin approval workflow: approve / suspend / activate / deactivate a provider."""
     if status_value is None and is_active is None:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY, "Provide status and/or is_active"
+            422, "Provide status and/or is_active"
         )
     repo = ProviderRepository(session)
     provider = await get_provider(session, provider_id)

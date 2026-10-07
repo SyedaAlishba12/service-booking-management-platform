@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import ProviderShell from "@/components/provider/ProviderShell";
+import ReviewsPanel from "@/components/provider/ReviewsPanel";
 import AvailabilityPanel from "@/components/provider-availability/AvailabilityPanel";
-import ProviderProfileForm from "@/components/provider-profile/ProviderProfileForm";
+import ProviderProfileForm from "@/components/provider/ProviderProfileForm";
 import Alert from "@/components/ui/Alert";
 import Button from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
@@ -118,6 +119,23 @@ export default function ProviderProfilePage() {
                   />
                 ) : (
                   <AvailabilityPanel />
+                )}
+              </div>
+            ),
+          },
+          {
+            id: "reviews",
+            label: "Reviews",
+            content: (
+              <div className="pt-5">
+                {needsProfile ? (
+                  <EmptyState
+                    title="Create your profile first"
+                    description="Reviews appear after customers book and complete your services."
+                    action={<Button onClick={() => setTab("profile")}>Go to profile</Button>}
+                  />
+                ) : (
+                  <ReviewsPanel />
                 )}
               </div>
             ),

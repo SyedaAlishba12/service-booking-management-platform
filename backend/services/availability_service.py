@@ -25,7 +25,7 @@ from services import provider_service
 def _check_order(start: time | None, end: time | None) -> None:
     if start is None or end is None or end <= start:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY, "end_time must be after start_time"
+            422, "end_time must be after start_time"
         )
 
 
@@ -92,7 +92,7 @@ async def update_availability(
     changes = data.model_dump(exclude_unset=True)
     if any(changes.get(f, "x") is None for f in ("day_of_week", "start_time", "end_time", "is_break")):
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY, "Fields cannot be set to null"
+            422, "Fields cannot be set to null"
         )
     day = changes.get("day_of_week", row.day_of_week)
     start = changes.get("start_time", row.start_time)
@@ -159,7 +159,7 @@ async def update_exception(
     changes = data.model_dump(exclude_unset=True)
     if any(changes.get(f, "x") is None for f in ("exception_date", "is_day_off")):
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY, "Fields cannot be set to null"
+            422, "Fields cannot be set to null"
         )
     exception_date = changes.get("exception_date", row.exception_date)
     is_day_off = changes.get("is_day_off", row.is_day_off)
@@ -168,7 +168,7 @@ async def update_exception(
         start = end = None
         if changes.get("start_time") is not None or changes.get("end_time") is not None:
             raise HTTPException(
-                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                422,
                 "start_time and end_time must be empty for a day off",
             )
     else:
