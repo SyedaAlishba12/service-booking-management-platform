@@ -1,11 +1,18 @@
+import enum
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, String
+from sqlalchemy import Boolean, DateTime, Enum, String, func
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database.base import Base
+
+
+class UserRole(str, enum.Enum):
+    CUSTOMER = "CUSTOMER"
+    PROVIDER = "PROVIDER"
+    ADMIN = "ADMIN"
 
 
 class User(Base):
@@ -40,8 +47,12 @@ class User(Base):
         nullable=False,
     )
 
-    role: Mapped[str] = mapped_column(
-        String(20),
+    role: Mapped[UserRole] = mapped_column(
+        Enum(
+            UserRole,
+            name="user_role",
+            values_callable=lambda values: [e.value for e in values],
+        ),
         nullable=False,
     )
 
@@ -53,18 +64,32 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(
         Boolean,
         default=True,
+        server_default="true",
         nullable=False,
     )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
+        server_default=func.now(),
         nullable=False,
     )
 
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        server_default=func.now(),
+        onupdate=func.now(),
         nullable=False,
     )
+
+    customer_profile: Mapped["Customer | None"] = relationship(
+        "Customer",
+        back_populates="user",
+        uselist=False,
+    )
+
+    provider_profile: Mapped["Provider | None"] = relationship(
+        "Provider",
+        back_populates="user",
+        uselist=False,
+    )
+
