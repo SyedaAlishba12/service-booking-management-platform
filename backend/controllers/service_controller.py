@@ -1,7 +1,7 @@
 """Service controllers: turn service results into the standard API response."""
 from uuid import UUID
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,7 +23,7 @@ def build_filters(**params) -> ServiceFilters:
         return ServiceFilters(**params)
     except ValidationError as exc:
         message = str(exc.errors()[0]["msg"]).removeprefix("Value error, ")
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, message)
+        raise HTTPException(422, message)
 
 
 async def create_my_service(
