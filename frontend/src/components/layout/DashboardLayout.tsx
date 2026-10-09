@@ -4,6 +4,8 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 import Sidebar from "./Sidebar";
 import DashboardHeader from "./DashboardHeader";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import { useAuth } from "@/app/providers/AuthProvider";
 
 interface SidebarItem {
   label: string;
@@ -37,8 +39,10 @@ export default function DashboardLayout({
   actions,
 }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { user } = useAuth();
 
   return (
+    <ProtectedRoute>
     <div className="min-h-screen bg-background text-foreground">
       <Sidebar
         items={sidebarItems}
@@ -52,8 +56,8 @@ export default function DashboardLayout({
           title={title}
           description={description}
           breadcrumb={breadcrumb}
-          userName={userName}
-          userEmail={userEmail}
+          userName={userName ?? user?.full_name}
+          userEmail={userEmail ?? user?.email}
           notificationCount={notificationCount}
           actions={actions}
           onMenuClick={() => setSidebarOpen(true)}
@@ -66,5 +70,6 @@ export default function DashboardLayout({
         </main>
       </div>
     </div>
+    </ProtectedRoute>
   );
 }

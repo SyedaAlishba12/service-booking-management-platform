@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import QueryProvider from "./providers/QueryProvider";
+import { AuthProvider } from "./providers/AuthProvider";
 import "./globals.css";
 
 // Variables are applied on <html> and consumed by globals.css
@@ -31,7 +32,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body>
-        <QueryProvider>{children}</QueryProvider>
+        <QueryProvider><AuthProvider>{children}</AuthProvider></QueryProvider>
       </body>
     </html>
   );
