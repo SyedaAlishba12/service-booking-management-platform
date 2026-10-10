@@ -1,0 +1,15 @@
+export const adminSidebarItems = [
+  { label: "Dashboard", href: "/dashboard" },
+  { label: "Calendar", href: "/dashboard/calendar" },
+  { label: "Bookings", href: "/dashboard/bookings" },
+  { label: "Services", href: "/dashboard/services" },
+  { label: "Providers", href: "/dashboard/providers" },
+  { label: "Reviews", href: "/dashboard/admin/reviews" },
+  { label: "Categories", href: "/dashboard/categories" },
+  { label: "Settings", href: "/dashboard/settings" },
+  { label: "Admin overview", href: "/dashboard/admin" },
+  { label: "Provider approvals", href: "/dashboard/admin/providers" },
+  { label: "Service management", href: "/dashboard/admin/services" },
+  { label: "Complaints", href: "/dashboard/admin/complaints" },
+  { label: "Reports", href: "/dashboard/admin/reports" },
+];
