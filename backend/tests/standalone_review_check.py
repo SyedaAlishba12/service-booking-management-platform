@@ -28,21 +28,17 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from database.base import Base
 from models.review import Review  # noqa: F401  — registers Review in metadata
-
-# ---------------------------------------------------------------------------
-# Stub tables for FK dependencies (not yet in local Base.metadata).
-# Only register when absent so this script is safe to run after those
-# modules are merged.
-# ---------------------------------------------------------------------------
-for _table_name in ("users", "bookings", "providers", "services"):
-    if _table_name not in Base.metadata.tables:
-        Table(
-            _table_name,
-            Base.metadata,
-            Column("id", PG_UUID(as_uuid=True), primary_key=True),
-        )
-
-# Import after path + stub setup
+try:
+    from models.user import User  # noqa: F401
+    from models.booking import Booking  # noqa: F401
+    from models.category import Category  # noqa: F401
+    from models.provider import Provider  # noqa: F401
+    from models.service import Service  # noqa: F401
+    from models.customer import Customer  # noqa: F401
+    from models.availability import Availability  # noqa: F401
+    from models.notification import Notification  # noqa: F401
+except ImportError:
+    pass
 import services.review_service as svc  # noqa: E402
 from schemas.review import ReviewCreate, ReviewUpdate, ReviewVisibilityUpdate  # noqa: E402
 from services.booking_eligibility import (  # noqa: E402
@@ -50,6 +46,19 @@ from services.booking_eligibility import (  # noqa: E402
     ReviewEligibility,
     set_eligibility_provider,
 )
+
+# ---------------------------------------------------------------------------
+# Stub tables for FK dependencies (not yet in local Base.metadata).
+# We run this AFTER imports so real models take precedence, and we only
+# stub what is still missing before create_all().
+# ---------------------------------------------------------------------------
+for _table_name in ("users", "bookings", "providers", "services", "categories", "customers"):
+    if _table_name not in Base.metadata.tables:
+        Table(
+            _table_name,
+            Base.metadata,
+            Column("id", PG_UUID(as_uuid=True), primary_key=True),
+        )
 
 # ---------------------------------------------------------------------------
 # Engine + session factory (in-memory SQLite)
@@ -60,10 +69,12 @@ SessionFactory = async_sessionmaker(
     bind=ENGINE, class_=AsyncSession, expire_on_commit=False
 )
 
-
 async def create_tables():
     async with ENGINE.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+# (Global mock removed. Tests now run with the real hook, which swallows errors on missing providers.)
+ORIGINAL_NOTIFY_HOOK = getattr(svc, "_notify_provider_new_review", None)
 
 
 # ---------------------------------------------------------------------------
@@ -420,31 +431,196 @@ async def test_min_rating_filter(db: AsyncSession):
     ok(label)
 
 
-async def test_notification_hook_failure_does_not_fail_creation(db: AsyncSession):
-    label = "notification hook raising does not fail review creation"
-    # Patch the internal hook to raise
+class FakeProvider:
+    def __init__(self, user_id):
+        self.user_id = user_id
+
+async def test_notify_hook_called_on_create(db: AsyncSession):
+    label = "notification hook called exactly once on create"
     import services.review_service as svc_module
-
-    original_hook = svc_module._notify_provider_new_review
-
-    async def _bad_hook(review):
-        raise RuntimeError("Notification system exploded!")
-
-    svc_module._notify_provider_new_review = _bad_hook
-
+    calls = []
+    
+    async def fake_get_provider(session, provider_id):
+        return FakeProvider(user_id=USER_B)
+        
+    async def fake_notify(session, *, user_id, notification_type, title, message, entity_type=None, entity_id=None):
+        calls.append(dict(
+            user_id=user_id, type=notification_type, message=message, entity_id=entity_id
+        ))
+        
+    orig_get = getattr(svc_module, "get_provider", None)
+    orig_notify = getattr(svc_module, "notify", None)
+    svc_module.get_provider = fake_get_provider
+    svc_module.notify = fake_notify
+    svc_module._notify_provider_new_review = ORIGINAL_NOTIFY_HOOK
+    
     try:
-        set_eligibility_provider(make_fake_provider())
+        set_eligibility_provider(make_fake_provider(provider_id=PROVIDER_1))
         booking_id = uuid.uuid4()
-        review = await svc.create_review(
-            db, USER_A, ReviewCreate(booking_id=booking_id, rating=5)
-        )
-        assert review.id is not None, "review should have been created"
+        review = await svc_module.create_review(db, USER_A, ReviewCreate(booking_id=booking_id, rating=5, comment="Nice"))
+        
+        import repositories.review_repository as repo_direct
+        fresh_review = await repo_direct.get_by_booking_id(db, booking_id)
+        assert len(calls) == 1, "notify should be called exactly once"
+        call = calls[0]
+        assert call["user_id"] == USER_B, "user_id should match provider's user_id"
+        assert call["type"] == "NEW_REVIEW"
+        assert call["entity_id"] == fresh_review.id
+        assert "5-star" in call["message"]
         ok(label)
-    except Exception as exc:
-        fail(label, f"review creation failed despite hook error: {exc}")
     finally:
-        svc_module._notify_provider_new_review = original_hook
+        svc_module.get_provider = orig_get
+        svc_module.notify = orig_notify
+        svc_module._notify_provider_new_review = ORIGINAL_NOTIFY_HOOK
 
+async def test_notify_not_called_on_update_delete(db: AsyncSession):
+    label = "notification hook NOT called on update or delete"
+    import services.review_service as svc_module
+    calls = []
+    
+    async def fake_get_provider(session, provider_id):
+        return FakeProvider(user_id=USER_B)
+        
+    async def fake_notify(*args, **kwargs):
+        calls.append(kwargs)
+        
+    orig_get = getattr(svc_module, "get_provider", None)
+    orig_notify = getattr(svc_module, "notify", None)
+    svc_module.get_provider = fake_get_provider
+    svc_module.notify = fake_notify
+    svc_module._notify_provider_new_review = ORIGINAL_NOTIFY_HOOK
+    
+    try:
+        set_eligibility_provider(make_fake_provider(provider_id=PROVIDER_1))
+        booking_id = uuid.uuid4()
+        review = await svc_module.create_review(db, USER_A, ReviewCreate(booking_id=booking_id, rating=4))
+        calls.clear()
+        
+        import repositories.review_repository as repo_direct
+        fresh_review = await repo_direct.get_by_booking_id(db, booking_id)
+        
+        await svc_module.update_review(db, USER_A, fresh_review.id, ReviewUpdate(rating=5))
+        assert len(calls) == 0, "notify should not be called on update"
+        
+        await svc_module.delete_review(db, USER_A, fresh_review.id)
+        assert len(calls) == 0, "notify should not be called on delete"
+        ok(label)
+    finally:
+        svc_module.get_provider = orig_get
+        svc_module.notify = orig_notify
+        svc_module._notify_provider_new_review = ORIGINAL_NOTIFY_HOOK
+
+async def test_notify_not_called_on_provider_error(db: AsyncSession):
+    label = "creation succeeds but notify skipped if get_provider raises"
+    import services.review_service as svc_module
+    from fastapi import HTTPException
+    from schemas.review import ReviewResponse
+    calls = []
+    
+    async def fake_get_provider(session, provider_id):
+        raise HTTPException(status_code=404, detail="Provider not found")
+        
+    async def fake_notify(*args, **kwargs):
+        calls.append(kwargs)
+        
+    orig_get = getattr(svc_module, "get_provider", None)
+    orig_notify = getattr(svc_module, "notify", None)
+    svc_module.get_provider = fake_get_provider
+    svc_module.notify = fake_notify
+    svc_module._notify_provider_new_review = ORIGINAL_NOTIFY_HOOK
+    
+    try:
+        set_eligibility_provider(make_fake_provider(provider_id=PROVIDER_1))
+        booking_id = uuid.uuid4()
+        review = await svc_module.create_review(db, USER_A, ReviewCreate(booking_id=booking_id, rating=4))
+        assert len(calls) == 0, "notify should not be called if get_provider raises"
+        
+        # New assertions on the returned object
+        assert review.id is not None
+        assert review.rating == 4
+        assert review.provider_id == PROVIDER_1
+        ReviewResponse.model_validate(review)
+        
+        import repositories.review_repository as repo_direct
+        fresh = await repo_direct.get_by_booking_id(db, booking_id)
+        assert fresh is not None, "review should still be created"
+        ok(label)
+    finally:
+        svc_module.get_provider = orig_get
+        svc_module.notify = orig_notify
+        svc_module._notify_provider_new_review = ORIGINAL_NOTIFY_HOOK
+
+async def test_notify_error_swallowed(db: AsyncSession):
+    label = "creation succeeds if notify raises"
+    import services.review_service as svc_module
+    from schemas.review import ReviewResponse
+    
+    async def fake_get_provider(session, provider_id):
+        return FakeProvider(user_id=USER_B)
+        
+    async def fake_notify(*args, **kwargs):
+        raise RuntimeError("Notification failed")
+        
+    orig_get = getattr(svc_module, "get_provider", None)
+    orig_notify = getattr(svc_module, "notify", None)
+    svc_module.get_provider = fake_get_provider
+    svc_module.notify = fake_notify
+    svc_module._notify_provider_new_review = ORIGINAL_NOTIFY_HOOK
+    
+    try:
+        set_eligibility_provider(make_fake_provider(provider_id=PROVIDER_1))
+        booking_id = uuid.uuid4()
+        review = await svc_module.create_review(db, USER_A, ReviewCreate(booking_id=booking_id, rating=4))
+        
+        # New assertions on the returned object
+        assert review.id is not None
+        assert review.rating == 4
+        assert review.provider_id == PROVIDER_1
+        ReviewResponse.model_validate(review)
+        
+        import repositories.review_repository as repo_direct
+        fresh_review = await repo_direct.get_by_booking_id(db, booking_id)
+        assert fresh_review is not None, "review should be in the DB"
+        ok(label)
+    finally:
+        svc_module.get_provider = orig_get
+        svc_module.notify = orig_notify
+        svc_module._notify_provider_new_review = ORIGINAL_NOTIFY_HOOK
+
+async def test_notify_not_called_on_conflict(db: AsyncSession):
+    label = "duplicate conflict does not call notify"
+    import services.review_service as svc_module
+    calls = []
+    
+    async def fake_get_provider(session, provider_id):
+        return FakeProvider(user_id=USER_B)
+        
+    async def fake_notify(*args, **kwargs):
+        calls.append(kwargs)
+        
+    orig_get = getattr(svc_module, "get_provider", None)
+    orig_notify = getattr(svc_module, "notify", None)
+    svc_module.get_provider = fake_get_provider
+    svc_module.notify = fake_notify
+    svc_module._notify_provider_new_review = ORIGINAL_NOTIFY_HOOK
+    
+    try:
+        set_eligibility_provider(make_fake_provider(provider_id=PROVIDER_1))
+        booking_id = uuid.uuid4()
+        await svc_module.create_review(db, USER_A, ReviewCreate(booking_id=booking_id, rating=4))
+        calls.clear()
+        
+        try:
+            await svc_module.create_review(db, USER_A, ReviewCreate(booking_id=booking_id, rating=5))
+        except svc_module.ReviewConflictError:
+            pass
+            
+        assert len(calls) == 0, "notify should not be called on conflict"
+        ok(label)
+    finally:
+        svc_module.get_provider = orig_get
+        svc_module.notify = orig_notify
+        svc_module._notify_provider_new_review = ORIGINAL_NOTIFY_HOOK
 
 async def test_pagination_provider_visible_reviews(db: AsyncSession):
     label = "pagination: provider visible reviews slices correctly and handles visibility"
@@ -485,6 +661,83 @@ async def test_pagination_provider_visible_reviews(db: AsyncSession):
     assert total_hidden == 4
     ok(label)
 
+async def test_real_notify_path(db: AsyncSession):
+    label = "creation succeeds and creates real notification row"
+    import services.review_service as svc_module
+    from schemas.review import ReviewResponse
+    from models.user import User
+    from models.provider import Provider
+    from models.notification import Notification, NotificationType
+    from sqlalchemy import select
+    from services.provider_service import get_provider
+    from services.notification_integration import notify
+
+    orig_get = getattr(svc_module, "get_provider", None)
+    orig_notify = getattr(svc_module, "notify", None)
+    
+    svc_module.get_provider = get_provider
+    svc_module.notify = notify
+    svc_module._notify_provider_new_review = ORIGINAL_NOTIFY_HOOK
+
+    try:
+        new_user_id = uuid.uuid4()
+        new_provider_id = uuid.uuid4()
+        
+        user = User(
+            id=new_user_id,
+            full_name="Real Provider User",
+            email=f"{new_user_id}@test.com",
+            password_hash="test",
+            role="PROVIDER"
+        )
+        db.add(user)
+        
+        provider = Provider(
+            id=new_provider_id,
+            user_id=new_user_id,
+            business_name="Real Provider",
+            location="123 Test St",
+            timezone="UTC",
+            slot_interval_minutes=30
+        )
+        db.add(provider)
+        await db.commit()
+
+        set_eligibility_provider(make_fake_provider(provider_id=new_provider_id))
+        booking_id = uuid.uuid4()
+        
+        try:
+            review = await svc_module.create_review(db, USER_A, ReviewCreate(booking_id=booking_id, rating=5, comment="Real notify"))
+        except Exception:
+            import traceback
+            print("FAILED create_review exception:")
+            traceback.print_exc()
+            raise
+
+        assert review.id is not None
+        assert review.provider_id == new_provider_id
+        ReviewResponse.model_validate(review)
+
+        result = await db.execute(select(Notification).where(Notification.user_id == new_user_id))
+        notifications = result.scalars().all()
+        
+        if len(notifications) != 1:
+            print(f"FAILED: Expected 1 notification, got {len(notifications)}")
+            for n in notifications:
+                print(f"Found notification: {n.id} {n.notification_type}")
+            assert False, "notification count mismatch"
+            
+        n = notifications[0]
+        assert n.notification_type == NotificationType.NEW_REVIEW, f"type mismatch: {n.notification_type}"
+        assert n.entity_type == "review"
+        assert n.entity_id == review.id
+        assert n.is_read is False
+
+        ok(label)
+    finally:
+        svc_module.get_provider = orig_get
+        svc_module.notify = orig_notify
+
 # ---------------------------------------------------------------------------
 # Main runner — tests share one DB session (sequential, order matters)
 # ---------------------------------------------------------------------------
@@ -508,8 +761,13 @@ TESTS = [
     test_rating_summary_math,
     test_batch_summaries_include_zero_provider,
     test_min_rating_filter,
-    test_notification_hook_failure_does_not_fail_creation,
-    test_pagination_provider_visible_reviews
+    test_notify_hook_called_on_create,
+    test_notify_not_called_on_update_delete,
+    test_notify_not_called_on_provider_error,
+    test_notify_error_swallowed,
+    test_notify_not_called_on_conflict,
+    test_pagination_provider_visible_reviews,
+    test_real_notify_path
 ]
 
 

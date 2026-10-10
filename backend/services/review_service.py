@@ -26,6 +26,8 @@ from services.booking_eligibility import (
     EligibilityUnavailableError,
     get_review_eligibility,
 )
+from services.provider_service import get_provider
+from services.notification_integration import notify
 
 
 # ---------------------------------------------------------------------------
@@ -95,15 +97,23 @@ __all__ = [
 # Notification hook (no-op stub)
 # ---------------------------------------------------------------------------
 
-
-async def _notify_provider_new_review(review: Review) -> None:  # noqa: RUF029
-    """No-op notification hook called after a review is created.
-
-    TODO: Replace with Zainab's notify() call passing NEW_REVIEW event.
-          This is intentionally a no-op so the notification system can be
-          wired in without changing the review creation logic.
-    """
-    pass
+async def _notify_provider_new_review(db: AsyncSession, review: Review) -> None:  # noqa: RUF029
+    """Real notification hook called after a review is created."""
+    try:
+        async with db.begin_nested():
+            provider = await get_provider(db, review.provider_id)
+            await notify(
+                db,
+                user_id=provider.user_id,
+                notification_type="NEW_REVIEW",
+                title="New review received",
+                message=f"You received a new {review.rating}-star review.",
+                entity_type="review",
+                entity_id=review.id,
+            )
+        await db.commit()
+    except Exception:
+        pass
 
 
 # ---------------------------------------------------------------------------
@@ -167,7 +177,7 @@ async def create_review(
     # Notification hook: swallow all errors so a notification failure
     # NEVER fails the review creation.
     try:
-        await _notify_provider_new_review(review)
+        await _notify_provider_new_review(db, review)
     except Exception:  # noqa: BLE001
         pass
 
