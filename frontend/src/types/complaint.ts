@@ -28,3 +28,11 @@ export interface ComplaintUpdatePayload {
   status: ComplaintStatus;
   admin_response?: string | null;
 }
+
+export interface ComplaintCreatePayload {
+  complaint_type: ComplaintType;
+  subject: string;
+  description: string;
+  booking_id?: string | null;
+  provider_id?: string | null;
+}

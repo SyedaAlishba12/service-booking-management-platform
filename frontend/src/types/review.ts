@@ -17,3 +17,25 @@ export interface ReviewListParams {
   rating?: number;
   is_visible?: boolean;
 }
+
+export type Review = AdminReview;
+
+export type RatingBreakdown = Record<"1"|"2"|"3"|"4"|"5", number>;
+
+export interface ProviderRatingSummary {
+  provider_id: string;
+  average_rating: number;
+  total_reviews: number;
+  breakdown: RatingBreakdown;
+}
+
+export interface ReviewCreatePayload {
+  booking_id: string;
+  rating: number;
+  comment?: string | null;
+}
+
+export interface ReviewUpdatePayload {
+  rating?: number;
+  comment?: string | null;
+}
