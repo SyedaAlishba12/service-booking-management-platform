@@ -30,7 +30,6 @@ export interface ProviderDashboardExtras {
   bookings: BookingSummary;
   earnings: EarningsSummary;
   customers: CustomerSummary;
-  rating: RatingSummary;
   activity: DashboardActivity[];
 }
 
@@ -38,7 +37,7 @@ export interface ProviderDashboardExtras {
 export interface ProviderReview {
   id: string;
   customer_name: string;
-  service_name: string;
+  service_name: string | null;
   rating: number;
   comment: string | null;
   created_at: string;

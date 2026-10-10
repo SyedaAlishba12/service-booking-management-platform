@@ -82,7 +82,7 @@ function toService(payload: ServicePayload, id: string): ProviderService {
 // ---------------- API ----------------
 export const providerApi = {
   listCategories(): Promise<CategoryOption[]> {
-    // TODO: switch to Taha's GET /api/categories when it is ready (check its response shape).
+    // Taha's GET /api/categories returns a plain array of active categories (id, name, slug, ...).
     if (USE_MOCK) return delay(MOCK_CATEGORIES);
     return apiClient.get<CategoryOption[]>("/api/categories", {
       headers: debugHeaders(),

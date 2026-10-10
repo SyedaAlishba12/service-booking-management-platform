@@ -8,9 +8,18 @@ export function useDashboardExtras() {
   });
 }
 
-export function useMyReviews() {
+export function useProviderRating(providerId: string | undefined) {
   return useQuery({
-    queryKey: ["provider", "reviews"],
-    queryFn: providerDashboardApi.getReviews,
+    queryKey: ["provider", "rating", providerId],
+    queryFn: () => providerDashboardApi.getRating(providerId as string),
+    enabled: !!providerId,
+  });
+}
+
+export function useMyReviews(providerId: string | undefined) {
+  return useQuery({
+    queryKey: ["provider", "reviews", providerId],
+    queryFn: () => providerDashboardApi.getReviews(providerId as string),
+    enabled: !!providerId,
   });
 }

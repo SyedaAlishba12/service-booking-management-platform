@@ -97,9 +97,9 @@ export function CustomersSummaryCard({ customers }: { customers: CustomerSummary
   );
 }
 
-export function RatingSummaryCard({ rating }: { rating: RatingSummary }) {
+export function RatingSummaryCard({ rating, sample = true }: { rating: RatingSummary; sample?: boolean }) {
   return (
-    <SummaryShell eyebrow="Reviews" title="Your rating" href="/dashboard/reviews" linkLabel="Read reviews" sample>
+    <SummaryShell eyebrow="Reviews" title="Your rating" href="/dashboard/reviews" linkLabel="Read reviews" sample={sample}>
       <div className="flex items-center gap-3">
         <p className="text-3xl font-bold tracking-tight text-foreground">{rating.average.toFixed(1)}</p>
         <Rating value={rating.average} count={rating.total} size="sm" showValue={false} />
