@@ -43,6 +43,8 @@ from routes.review_routes import (
     provider_reviews_router as review_provider_router,
 )
 from routes.review_routes import reviews_router as review_user_router
+from routes.report_routes import admin_router as report_admin_router
+from routes.admin_routes import admin_router as admin_management_router
 from services.booking_eligibility import set_eligibility_provider
 from services.booking_service import get_review_eligibility
 
@@ -84,6 +86,8 @@ for module in (
     review_admin_router,
     complaint_user_router,
     complaint_admin_router,
+    report_admin_router,
+    admin_management_router,
 ):
     app.include_router(module)
 
