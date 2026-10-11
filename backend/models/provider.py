@@ -45,33 +45,58 @@ class Provider(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
+
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
     )
+
     business_name: Mapped[str] = mapped_column(String(150), nullable=False)
+
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    profile_image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    profile_image_url: Mapped[str | None] = mapped_column(
+        String(500), nullable=True
+    )
+
     location: Mapped[str] = mapped_column(String(255), nullable=False)
+
     city: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    contact_phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
-    contact_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    contact_phone: Mapped[str | None] = mapped_column(
+        String(30), nullable=True
+    )
+
+    contact_email: Mapped[str | None] = mapped_column(
+        String(255), nullable=True
+    )
+
     timezone: Mapped[str] = mapped_column(String(64), nullable=False)
-    slot_interval_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    slot_interval_minutes: Mapped[int] = mapped_column(
+        Integer, nullable=False
+    )
+
     buffer_minutes: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
     )
+
     status: Mapped[ProviderStatus] = mapped_column(
         Enum(ProviderStatus, name="provider_status"),
         nullable=False,
         default=ProviderStatus.PENDING,
         server_default=ProviderStatus.PENDING.value,
     )
+
     is_active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default="true"
     )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -79,14 +104,24 @@ class Provider(Base):
         onupdate=func.now(),
     )
 
+    user: Mapped["User"] = relationship(
+        "User",
+        back_populates="provider_profile",
+    )
+
     services: Mapped[list["Service"]] = relationship(
         "Service", back_populates="provider"
     )
+
     availabilities: Mapped[list["Availability"]] = relationship(
-        "Availability", back_populates="provider", cascade="all, delete-orphan"
+        "Availability",
+        back_populates="provider",
+        cascade="all, delete-orphan",
     )
+
     availability_exceptions: Mapped[list["AvailabilityException"]] = relationship(
         "AvailabilityException",
         back_populates="provider",
         cascade="all, delete-orphan",
     )
+

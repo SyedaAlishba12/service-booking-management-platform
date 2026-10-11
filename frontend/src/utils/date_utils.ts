@@ -62,3 +62,16 @@ export function toDate(value: Date | string): Date | null {
 
   return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
 }
+
+export function dateInputValue(date: Date | string, timeZone = "UTC"): string {
+  const parsedDate = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(parsedDate.getTime())) return "";
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(parsedDate);
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}

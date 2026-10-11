@@ -18,12 +18,10 @@ import Alert from "@/components/ui/Alert";
 import Button from "@/components/ui/Button";
 import ErrorState from "@/components/ui/ErrorState";
 import LoadingState from "@/components/ui/LoadingState";
-import { USE_MOCK } from "@/api/provider_api";
-import { useDashboardExtras, useProviderRating } from "@/hooks/useProviderDashboard";
+import { useDashboardExtras } from "@/hooks/useProviderDashboard";
 import { useMyAvailability, useMyProvider } from "@/hooks/useProviderProfile";
 import { useMyServices } from "@/hooks/useProviderServices";
 import type { DashboardStat, QuickAction } from "@/types/dashboard";
-import type { RatingSummary } from "@/types/provider_dashboard";
 import { getApiErrorMessage, isApiError } from "@/utils/api_error_handler";
 import { formatMoney } from "@/utils/format_utils";
 
@@ -34,15 +32,12 @@ const QUICK_ACTIONS: QuickAction[] = [
   { label: "Edit profile", description: "Update business details and contact info.", href: "/dashboard/providers" },
 ];
 
-const EMPTY_RATING: RatingSummary = { average: 0, total: 0, breakdown: {} };
-
 export default function ProviderDashboardPage() {
   const provider = useMyProvider();
   const services = useMyServices();
   const noProfile = provider.isError && isApiError(provider.error) && provider.error.status === 404;
   const availability = useMyAvailability(!noProfile && !!provider.data);
   const extras = useDashboardExtras();
-  const rating = useProviderRating(provider.data?.id);
 
   const dateLabel = new Date().toLocaleDateString("en-GB", {
     weekday: "long",
@@ -68,13 +63,12 @@ export default function ProviderDashboardPage() {
       />
     );
   } else {
-    const { bookings, earnings, customers, activity } = extras.data;
-    const ratingData = rating.data ?? EMPTY_RATING;
+    const { bookings, earnings, customers, rating, activity } = extras.data;
     const stats: DashboardStat[] = [
       { label: "Today's appointments", value: String(bookings.today_count), detail: `${bookings.today_remaining} still to come` },
       { label: "Upcoming bookings", value: String(bookings.upcoming_count), detail: `${bookings.pending_count} waiting for confirmation` },
-      { label: "Earnings this month", value: formatMoney(earnings.this_month), detail: "Sample data", trend: earnings.this_month >= earnings.last_month ? "up" : "down" },
-      { label: "Average rating", value: ratingData.average.toFixed(1), detail: `${ratingData.total} reviews` },
+      { label: "Earnings this month", value: formatMoney(earnings.this_month), detail: extras.data.is_sample ? "Sample data" : "After platform commission", trend: earnings.this_month >= earnings.last_month ? "up" : "down" },
+      { label: "Average rating", value: rating.average.toFixed(1), detail: `${rating.total} reviews` },
     ];
 
     body = (
@@ -101,7 +95,7 @@ export default function ProviderDashboardPage() {
           <div className="xl:col-span-2">
             <UpcomingSchedule bookings={bookings.upcoming} viewAllHref="/dashboard/bookings" />
           </div>
-          <RecentActivity activity={activity} />
+          <RecentActivity activity={activity} sample={extras.data.is_sample} />
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
@@ -113,9 +107,9 @@ export default function ProviderDashboardPage() {
               {noProfile ? "Create your profile to set availability." : "Loading availability..."}
             </div>
           )}
-          <EarningsSummaryCard earnings={earnings} />
-          <CustomersSummaryCard customers={customers} />
-          <RatingSummaryCard rating={ratingData} sample={USE_MOCK} />
+          <EarningsSummaryCard earnings={earnings} sample={extras.data.is_sample} />
+          <CustomersSummaryCard customers={customers} sample={extras.data.is_sample} />
+          <RatingSummaryCard rating={rating} sample={extras.data.is_sample} />
         </div>
 
         <QuickActions actions={QUICK_ACTIONS} />

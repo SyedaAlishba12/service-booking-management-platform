@@ -8,14 +8,6 @@ export function useDashboardExtras() {
   });
 }
 
-export function useProviderRating(providerId: string | undefined) {
-  return useQuery({
-    queryKey: ["provider", "rating", providerId],
-    queryFn: () => providerDashboardApi.getRating(providerId as string),
-    enabled: !!providerId,
-  });
-}
-
 export function useMyReviews(providerId: string | undefined) {
   return useQuery({
     queryKey: ["provider", "reviews", providerId],
