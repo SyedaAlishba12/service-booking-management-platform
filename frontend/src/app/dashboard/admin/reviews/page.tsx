@@ -118,13 +118,28 @@ export default function ReviewsPage() {
       ),
     },
     {
+      key: "service_id",
+      header: "Service",
+      render: (r) =>
+        r.service_name?.trim() ? (
+          <span>{r.service_name}</span>
+        ) : (
+          <span title={r.service_id}>
+            {r.service_id.slice(0, 8)}...
+          </span>
+        ),
+    },
+    {
       key: "user_id",
       header: "Reviewer",
-      render: (r) => (
-        <span title={r.user_id}>
-          {r.user_id.slice(0, 8)}...
-        </span>
-      ),
+      render: (r) =>
+        r.reviewer_name?.trim() ? (
+          <span>{r.reviewer_name}</span>
+        ) : (
+          <span title={r.user_id}>
+            {r.user_id.slice(0, 8)}...
+          </span>
+        ),
     },
     {
       key: "created_at",

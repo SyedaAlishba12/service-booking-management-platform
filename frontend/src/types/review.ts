@@ -9,6 +9,8 @@ export interface AdminReview {
   is_visible: boolean;
   created_at: string;
   updated_at: string;
+  reviewer_name?: string | null;
+  service_name?: string | null;
 }
 
 export interface ReviewListParams {

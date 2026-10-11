@@ -32,7 +32,14 @@ export default function ReviewList({ providerId, pageSize = 6 }: ReviewListProps
           <div key={review.id} className="p-4 rounded-lg border border-line bg-surface">
             <div className="flex justify-between items-start mb-2">
               <div className="flex flex-col gap-1">
-                <span className="font-semibold text-foreground">Customer</span>
+                <span className="font-semibold text-foreground">
+                  {review.reviewer_name?.trim() || "Customer"}
+                </span>
+                {review.service_name?.trim() ? (
+                  <span className="text-xs text-muted">
+                    Service: {review.service_name}
+                  </span>
+                ) : null}
                 <span className="text-xs text-muted">
                   {new Date(review.created_at).toLocaleDateString()}
                 </span>
