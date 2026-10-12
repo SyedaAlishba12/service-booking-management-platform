@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import controllers.report_controller as ctrl
 from database.session import get_db
-from middleware.auth_stub import require_admin
+from middleware.admin_guard import require_admin
 from common.responses import ApiResponse
 
 admin_router = APIRouter(
