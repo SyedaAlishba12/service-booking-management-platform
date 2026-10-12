@@ -1,29 +1,45 @@
+
 """Test setup. Uses an in-memory SQLite database, so no PostgreSQL is needed.
 Dev dependencies: pytest, pytest-asyncio, aiosqlite, httpx, tzdata.
 Stand-in `users` / `categories` tables are created only if the real models are not loaded yet.
 """
+
 import os
 import uuid
 
 # Route tests import database.session, which builds an engine from these settings.
 # Dummy values: no real database is ever contacted.
-os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://user:pass@localhost/testdb")
+os.environ.setdefault(
+    "DATABASE_URL",
+    "postgresql+asyncpg://user:pass@localhost/testdb",
+)
 os.environ.setdefault("SECRET_KEY", "test-secret")
 os.environ["ENVIRONMENT"] = "development"
 
 import pytest_asyncio
 from sqlalchemy import Column, Table, event
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from database.base import Base
-import models.availability  # noqa: F401
+
+# Register related ORM models so SQLAlchemy can resolve relationships.
+import models.user  # noqa: F401
+import models.customer  # noqa: F401
+import models.category  # noqa: F401
 import models.provider  # noqa: F401
 import models.service  # noqa: F401
+import models.availability  # noqa: F401
 
+
+# Create minimal stand-in tables only if the real models are not registered.
 for _name in ("users", "categories"):
     if _name not in Base.metadata.tables:
-        Table(_name, Base.metadata, Column("id", UUID(as_uuid=True), primary_key=True))
+        Table(
+            _name,
+            Base.metadata,
+            Column("id", UUID(as_uuid=True), primary_key=True),
+        )
 
 
 @pytest_asyncio.fixture
@@ -38,19 +54,40 @@ async def session():
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
     maker = async_sessionmaker(engine, expire_on_commit=False)
+
     async with maker() as s:
-        # one user per role-ish need, and a category
+        # Create test users and categories with all required fields.
         users = Base.metadata.tables["users"]
         cats = Base.metadata.tables["categories"]
+
         s.user_ids = [uuid.uuid4() for _ in range(3)]
         s.category_ids = [uuid.uuid4() for _ in range(2)]
-        for uid in s.user_ids:
-            await s.execute(users.insert().values(id=uid))
-        for cid in s.category_ids:
-            await s.execute(cats.insert().values(id=cid))
+
+        for i, uid in enumerate(s.user_ids, start=1):
+            await s.execute(
+                users.insert().values(
+                    id=uid,
+                    full_name=f"Test User {i}",
+                    email=f"test{i}@example.com",
+                    password_hash="test-password-hash",
+                    role="PROVIDER",
+                )
+            )
+
+        for i, cid in enumerate(s.category_ids, start=1):
+            await s.execute(
+                cats.insert().values(
+                    id=cid,
+                    name=f"Test Category {i}",
+                    slug=f"test-category-{i}",
+                )
+            )
+
         await s.commit()
         yield s
+
     await engine.dispose()
 
 
@@ -66,6 +103,7 @@ async def client(session):
 
     app = FastAPI()
     register_error_handlers(app)
+
     for module in (provider_routes, service_routes, availability_routes):
         app.include_router(module.router)
 
@@ -74,9 +112,16 @@ async def client(session):
 
     app.dependency_overrides[get_db] = _db
     transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
+
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://test",
+    ) as c:
         yield c
 
 
 def auth(user_id, role="PROVIDER"):
-    return {"X-Debug-User-Id": str(user_id), "X-Debug-Role": role}
+    return {
+        "X-Debug-User-Id": str(user_id),
+        "X-Debug-Role": role,
+    }
