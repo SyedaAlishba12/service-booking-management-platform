@@ -1,7 +1,14 @@
 from fastapi import FastAPI
 
 from common.error_handlers import register_error_handlers
-from routes import availability_routes, booking_routes, calendar_routes, payment_routes, provider_routes, service_routes
+from routes import (
+    availability_routes,
+    booking_routes,
+    calendar_routes,
+    payment_routes,
+    provider_routes,
+    service_routes,
+)
 from routes.category_routes import admin_router as category_admin_router
 from routes.category_routes import public_router as category_public_router
 from routes.complaint_routes import admin_router as complaint_admin_router
@@ -15,15 +22,34 @@ from services.booking_eligibility import set_eligibility_provider
 from services.booking_service import get_review_eligibility
 
 # Import model modules so SQLAlchemy relationships and Alembic metadata are complete.
-from models import availability, booking, category, complaint, customer, notification, platform_setting, provider, review, service, user  # noqa: F401
+from models import (  # noqa: F401
+    availability,
+    booking,
+    category,
+    complaint,
+    customer,
+    notification,
+    platform_setting,
+    provider,
+    review,
+    service,
+    user,
+)
 
-app = FastAPI(title="Service Booking & Management Platform", version="1.0.0")
+app = FastAPI(
+    title="Service Booking & Management Platform",
+    version="1.0.0",
+)
 register_error_handlers(app)
 
-for module in (provider_routes, service_routes, availability_routes):
+for module in (
+    provider_routes,
+    service_routes,
+    availability_routes,
+):
     app.include_router(module.router)
 
-for module in (
+for router in (
     booking_routes.router,
     payment_routes.router,
     calendar_routes.router,
@@ -37,14 +63,18 @@ for module in (
     complaint_user_router,
     complaint_admin_router,
 ):
-    app.include_router(module)
+    app.include_router(router)
 
 set_eligibility_provider(get_review_eligibility)
 
 
 @app.get("/")
 async def root():
-    return {"message": "Service Booking & Management Platform API is running"}
+    return {
+        "message": (
+            "Service Booking & Management Platform API is running"
+        )
+    }
 
 
 @app.get("/health")
