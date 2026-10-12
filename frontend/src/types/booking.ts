@@ -7,6 +7,7 @@ export interface Booking {
   service_id: string;
   start_at: string;
   end_at: string;
+  created_at: string;
   status: BookingStatus;
   price: string | number;
   notes?: string | null;
