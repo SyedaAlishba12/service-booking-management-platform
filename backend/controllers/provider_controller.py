@@ -3,7 +3,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from common.auth_stub import CurrentUser
+from common.auth import CurrentUser
 from common.responses import ApiResponse, ok, paginated
 from schemas.provider import (
     ProviderCreate,

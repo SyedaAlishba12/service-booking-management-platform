@@ -105,8 +105,9 @@ async def session():
         cats = Base.metadata.tables["categories"]
         s.user_ids = [uuid.uuid4() for _ in range(3)]
         s.category_ids = [uuid.uuid4() for _ in range(2)]
-        for uid in s.user_ids:
-            await s.execute(users.insert().values(**fake_row(users, id=uid)))
+        roles = ["PROVIDER", "PROVIDER", "CUSTOMER"]
+        for uid, role in zip(s.user_ids, roles):
+            await s.execute(users.insert().values(**fake_row(users, id=uid, role=role)))
         for cid in s.category_ids:
             await s.execute(cats.insert().values(**fake_row(cats, id=cid)))
         await s.commit()
@@ -138,5 +139,9 @@ async def client(session):
         yield c
 
 
-def auth(user_id, role="PROVIDER"):
-    return {"X-Debug-User-Id": str(user_id), "X-Debug-Role": role}
+def auth(user_id):
+    """Authorization header with a real access token for this user.
+    user_ids[0] and [1] are PROVIDERs, user_ids[2] is a CUSTOMER (role comes from the database)."""
+    from common.security import create_access_token
+
+    return {"Authorization": f"Bearer {create_access_token(str(user_id), 'x')}"}
