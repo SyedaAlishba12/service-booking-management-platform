@@ -23,7 +23,9 @@ import type {
   BookingReportData, 
   RevenueReportData, 
   ReviewReportData, 
-  ComplaintReportData 
+  ComplaintReportData,
+  TopProviderRevenue,
+  DailyRevenue,
 } from "@/types/admin_report";
 
 // Helper component to render a simple horizontal bar for charts
@@ -114,13 +116,17 @@ function ProvidersReport({ queryParams }: { queryParams: { date_from: string; da
     { key: "completed_bookings", header: "Completed Bookings", render: (r) => formatNumber(r.completed_bookings) },
   ];
 
-  const revenueColumns: Column<{provider_id: string, paid_revenue: string | number}>[] = [
+  const revenueColumns: Column<TopProviderRevenue>[] = [
     { 
       key: "provider_id", 
       header: "Provider ID",
       render: (r) => <span title={r.provider_id}>{r.provider_id.slice(0, 8)}...</span> 
     },
-    { key: "paid_revenue", header: "Paid Revenue", render: (r) => `$${formatMoney(r.paid_revenue)}` },
+    { 
+      key: "net_collected", 
+      header: "Net Revenue", 
+      render: (r) => `$${formatMoney(r.net_collected ?? r.paid_revenue)}` 
+    },
   ];
 
   return (
@@ -295,42 +301,46 @@ function RevenueReport({ queryParams }: { queryParams: { date_from: string; date
 
   const report = data.data;
   
-  // Calculate max revenue carefully since it might be strings or numbers
-  const maxPerDay = Math.max(0, ...report.per_day.map(d => typeof d.revenue === "string" ? parseFloat(d.revenue) : d.revenue).filter(n => !isNaN(n)));
-
   const statusColumns: Column<{status: string, count: number}>[] = [
     { key: "status", header: "Payment Status" },
     { key: "count", header: "Count", render: (r) => formatNumber(r.count) },
   ];
   const statusData = Object.entries(report.count_by_status || {}).map(([status, count]) => ({ status, count }));
 
-  const perDayColumns: Column<{date: string, revenue: string | number}>[] = [
-    { key: "date", header: "Date" },
-    { key: "revenue", header: "Revenue", render: (r) => `$${formatMoney(r.revenue)}` },
+  const perDayColumns: Column<DailyRevenue>[] = [
+    { key: "date", header: "Date (UTC)" },
+    { key: "gross_captured", header: "Gross Captured", render: (r) => `$${formatMoney(r.gross_captured)}` },
+    { key: "refunds", header: "Refunds", render: (r) => `$${formatMoney(r.refunds)}` },
     { 
-      key: "chart", 
-      header: "Trend", 
-      className: "w-1/2",
-      render: (r) => {
-        const val = typeof r.revenue === "string" ? parseFloat(r.revenue) : r.revenue;
-        return <ProgressBar value={isNaN(val) ? 0 : val} max={maxPerDay} />;
-      }
+      key: "net_collected", 
+      header: "Net Collected", 
+      render: (r) => (
+        <span className={Number(r.net_collected) < 0 ? "text-danger font-medium" : "font-medium"}>
+          ${formatMoney(r.net_collected)}
+        </span>
+      ) 
     },
   ];
 
   return (
     <div className="space-y-6">
-      <div className="flex gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <Card className="flex-1">
           <CardContent>
-            <div className="text-sm font-medium text-muted">Paid Total</div>
-            <div className="mt-2 text-2xl font-bold text-success">${formatMoney(report.paid_total)}</div>
+            <div className="text-sm font-medium text-muted">Gross Captured</div>
+            <div className="mt-2 text-2xl font-bold text-success">${formatMoney(report.gross_captured)}</div>
           </CardContent>
         </Card>
         <Card className="flex-1">
           <CardContent>
-            <div className="text-sm font-medium text-muted">Refunded Total</div>
-            <div className="mt-2 text-2xl font-bold text-danger">${formatMoney(report.refunded_total)}</div>
+            <div className="text-sm font-medium text-muted">Refunds</div>
+            <div className="mt-2 text-2xl font-bold text-danger">${formatMoney(report.refunds)}</div>
+          </CardContent>
+        </Card>
+        <Card className="flex-1">
+          <CardContent>
+            <div className="text-sm font-medium text-muted">Net Collected</div>
+            <div className="mt-2 text-2xl font-bold text-brand font-semibold">${formatMoney(report.net_collected)}</div>
           </CardContent>
         </Card>
       </div>

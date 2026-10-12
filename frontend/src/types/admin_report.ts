@@ -20,8 +20,9 @@ export interface DashboardBookingsStats {
 }
 
 export interface DashboardPaymentsStats {
-  paid_total: string | number;
-  refunded_total: string | number;
+  gross_captured: string | number;
+  refunds: string | number;
+  net_collected: string | number;
   pending_count: number;
   failed_count: number;
 }
@@ -73,7 +74,10 @@ export interface TopProviderBookings {
 
 export interface TopProviderRevenue {
   provider_id: string;
-  paid_revenue: string | number;
+  net_collected: string | number;
+  gross_captured?: string | number;
+  refunds?: string | number;
+  paid_revenue?: string | number;
 }
 
 export interface ProviderReportData {
@@ -119,12 +123,15 @@ export interface BookingReportData {
 // Revenue Report
 export interface DailyRevenue {
   date: string;
-  revenue: string | number;
+  gross_captured: string | number;
+  refunds: string | number;
+  net_collected: string | number;
 }
 
 export interface RevenueReportData {
-  paid_total: string | number;
-  refunded_total: string | number;
+  gross_captured: string | number;
+  refunds: string | number;
+  net_collected: string | number;
   count_by_status: Record<string, number>;
   per_day: DailyRevenue[];
 }

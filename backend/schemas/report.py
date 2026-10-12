@@ -21,15 +21,17 @@ class BookingsStats(BaseModel):
 
 class PaymentsStats(BaseModel):
     """
-    paid_total sums the `amount` column for PAID payments.
-    refunded_total sums the `refund_amount` column for REFUNDED payments.
+    gross_captured sums amount where paid_at IS NOT NULL.
+    refunds sums refund_amount where refunded_at IS NOT NULL.
+    net_collected is gross_captured - refunds.
     """
-    paid_total: Decimal
-    refunded_total: Decimal
+    gross_captured: Decimal
+    refunds: Decimal
+    net_collected: Decimal
     pending_count: int
     failed_count: int
 
-    @field_serializer("paid_total", "refunded_total")
+    @field_serializer("gross_captured", "refunds", "net_collected")
     def serialize_decimal(self, v: Decimal) -> str:
         return str(v)
 
@@ -71,14 +73,17 @@ class TopProviderBookings(BaseModel):
 
 class TopProviderRevenue(BaseModel):
     """
-    paid_revenue sums the `amount` column for PAID payments for this provider.
+    net_collected ranks providers by gross_captured minus refunds within the range.
     """
     provider_id: str
-    paid_revenue: Decimal
+    net_collected: Decimal
+    gross_captured: Decimal = Decimal("0.00")
+    refunds: Decimal = Decimal("0.00")
+    paid_revenue: Decimal | None = None
 
-    @field_serializer("paid_revenue")
-    def serialize_decimal(self, v: Decimal) -> str:
-        return str(v)
+    @field_serializer("net_collected", "gross_captured", "refunds", "paid_revenue", when_used="always")
+    def serialize_decimal(self, v: Decimal | None) -> str | None:
+        return str(v) if v is not None else None
 
 class ProviderReportResponse(BaseModel):
     by_status: list[ProviderStatusCount]
@@ -113,26 +118,30 @@ class BookingReportResponse(BaseModel):
 
 class DailyRevenue(BaseModel):
     """
-    revenue sums the `amount` column for PAID payments on this day.
+    Daily breakdown covering the union of days with either activity (missing side = 0).
     """
     date: str
-    revenue: Decimal
+    gross_captured: Decimal
+    refunds: Decimal
+    net_collected: Decimal
 
-    @field_serializer("revenue")
+    @field_serializer("gross_captured", "refunds", "net_collected")
     def serialize_decimal(self, v: Decimal) -> str:
         return str(v)
 
 class RevenueReportResponse(BaseModel):
     """
-    paid_total sums the `amount` column for PAID payments.
-    refunded_total sums the `refund_amount` column for REFUNDED payments.
+    gross_captured sums amount where paid_at IS NOT NULL in range.
+    refunds sums refund_amount where refunded_at IS NOT NULL in range.
+    net_collected is gross_captured - refunds.
     """
-    paid_total: Decimal
-    refunded_total: Decimal
+    gross_captured: Decimal
+    refunds: Decimal
+    net_collected: Decimal
     count_by_status: dict[str, int]
     per_day: list[DailyRevenue]
 
-    @field_serializer("paid_total", "refunded_total")
+    @field_serializer("gross_captured", "refunds", "net_collected")
     def serialize_decimal(self, v: Decimal) -> str:
         return str(v)
 

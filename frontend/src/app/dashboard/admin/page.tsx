@@ -35,9 +35,9 @@ export default function AdminOverviewPage() {
         detail: "All time bookings",
       },
       {
-        label: "Paid Revenue",
-        value: `$${formatMoney(stats.payments?.paid_total)}`,
-        detail: "Total confirmed payments",
+        label: "Net Collected",
+        value: `$${formatMoney(stats.payments?.net_collected)}`,
+        detail: "Total net revenue after refunds",
       },
       {
         label: "Open Complaints",
@@ -141,12 +141,16 @@ export default function AdminOverviewPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex justify-between border-b border-line pb-2">
-                    <span className="text-muted">Paid Total</span>
-                    <span className="font-medium text-success">${formatMoney(data.data.payments?.paid_total)}</span>
+                    <span className="text-muted">Gross Captured</span>
+                    <span className="font-medium text-success">${formatMoney(data.data.payments?.gross_captured)}</span>
                   </div>
                   <div className="flex justify-between border-b border-line pb-2">
-                    <span className="text-muted">Refunded Total</span>
-                    <span className="font-medium text-danger">${formatMoney(data.data.payments?.refunded_total)}</span>
+                    <span className="text-muted">Refunds</span>
+                    <span className="font-medium text-danger">${formatMoney(data.data.payments?.refunds)}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-line pb-2">
+                    <span className="text-muted">Net Collected</span>
+                    <span className="font-medium text-brand font-semibold">${formatMoney(data.data.payments?.net_collected)}</span>
                   </div>
                   <div className="flex justify-between border-b border-line pb-2">
                     <span className="text-muted">Pending Count</span>
