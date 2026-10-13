@@ -13,4 +13,5 @@ export const adminSidebarItems = [
   { label: "Complaints", href: "/dashboard/admin/complaints" },
   { label: "Reports", href: "/dashboard/admin/reports" },
   { label: "Booking management", href: "/dashboard/admin/bookings" },
+  { label: "User management", href: "/dashboard/admin/users" },
 ];
