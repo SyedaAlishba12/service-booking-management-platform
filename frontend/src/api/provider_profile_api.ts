@@ -9,7 +9,7 @@ import type {
   ProviderPayload,
 } from "@/types/provider";
 import { ApiError, apiClient } from "@/utils/api_client";
-import { USE_MOCK, debugHeaders, delay } from "./provider_api";
+import { USE_MOCK, delay } from "./provider_api";
 
 // ---------------- mock data (in memory, resets on refresh) ----------------
 let mockProvider: Provider = {
@@ -48,7 +48,7 @@ function overlaps(a: { start_time: string; end_time: string }, b: { start_time: 
 export const providerProfileApi = {
   getMyProvider(): Promise<Provider> {
     if (USE_MOCK) return delay({ ...mockProvider });
-    return apiClient.get<Provider>("/api/providers/me", { headers: debugHeaders() });
+    return apiClient.get<Provider>("/api/providers/me");
   },
 
   saveProvider(payload: ProviderPayload, exists: boolean): Promise<Provider> {
@@ -57,8 +57,8 @@ export const providerProfileApi = {
       return delay({ ...mockProvider });
     }
     return exists
-      ? apiClient.put<Provider>("/api/providers/me", payload, { headers: debugHeaders() })
-      : apiClient.post<Provider>("/api/providers", payload, { headers: debugHeaders() });
+      ? apiClient.put<Provider>("/api/providers/me", payload)
+      : apiClient.post<Provider>("/api/providers", payload);
   },
 
   getMyAvailability(): Promise<ProviderAvailability> {
@@ -72,7 +72,7 @@ export const providerProfileApi = {
         exceptions: [...mockExceptions],
       });
     }
-    return apiClient.get<ProviderAvailability>("/api/providers/me/availability", { headers: debugHeaders() });
+    return apiClient.get<ProviderAvailability>("/api/providers/me/availability");
   },
 
   async addAvailability(payload: AvailabilityPayload): Promise<AvailabilityRow> {
@@ -85,7 +85,7 @@ export const providerProfileApi = {
       mockWeekly = [...mockWeekly, row];
       return delay(row);
     }
-    return apiClient.post<AvailabilityRow>("/api/providers/me/availability", payload, { headers: debugHeaders() });
+    return apiClient.post<AvailabilityRow>("/api/providers/me/availability", payload);
   },
 
   async deleteAvailability(id: string): Promise<null> {
@@ -93,7 +93,7 @@ export const providerProfileApi = {
       mockWeekly = mockWeekly.filter((r) => r.id !== id);
       return delay(null);
     }
-    return apiClient.delete<null>(`/api/providers/me/availability/${id}`, { headers: debugHeaders() });
+    return apiClient.delete<null>(`/api/providers/me/availability/${id}`);
   },
 
   async addException(payload: ExceptionPayload): Promise<AvailabilityException> {
@@ -105,9 +105,7 @@ export const providerProfileApi = {
       mockExceptions = [...mockExceptions, row].sort((a, b) => a.exception_date.localeCompare(b.exception_date));
       return delay(row);
     }
-    return apiClient.post<AvailabilityException>("/api/providers/me/availability-exceptions", payload, {
-      headers: debugHeaders(),
-    });
+    return apiClient.post<AvailabilityException>("/api/providers/me/availability-exceptions", payload);
   },
 
   async deleteException(id: string): Promise<null> {
@@ -115,6 +113,6 @@ export const providerProfileApi = {
       mockExceptions = mockExceptions.filter((e) => e.id !== id);
       return delay(null);
     }
-    return apiClient.delete<null>(`/api/providers/me/availability-exceptions/${id}`, { headers: debugHeaders() });
+    return apiClient.delete<null>(`/api/providers/me/availability-exceptions/${id}`);
   },
 };

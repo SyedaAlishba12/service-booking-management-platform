@@ -39,7 +39,7 @@ export interface ProviderDashboardExtras {
 export interface ProviderReview {
   id: string;
   customer_name: string;
-  service_name: string;
+  service_name: string | null;
   rating: number;
   comment: string | null;
   created_at: string;
