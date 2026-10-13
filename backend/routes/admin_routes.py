@@ -1,3 +1,4 @@
+from datetime import date
 from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,6 +8,7 @@ from middleware.auth_middleware import get_current_user
 from common.responses import ApiResponse, PaginatedData, ok, paginated
 from schemas.provider import ProviderResponse
 from schemas.service import ServiceResponse
+from schemas.admin_booking import AdminBookingDetailResponse, AdminBookingListItem
 from schemas.admin import (
     AdminUserDetailResponse,
     AdminUserResponse,
@@ -15,8 +17,10 @@ from schemas.admin import (
     UserStatusUpdate,
 )
 import controllers.admin_controller as ctrl
+import controllers.admin_booking_controller as booking_ctrl
 import services.admin_user_service as user_svc
 from models.provider import ProviderStatus
+from models.booking import BookingStatus
 from models.user import User
 
 admin_router = APIRouter(prefix="/api/admin", tags=["Admin"], dependencies=[Depends(require_admin)])
@@ -62,6 +66,52 @@ async def set_service_active(id: UUID, payload: ServiceActiveUpdate, db: AsyncSe
 
 
 # ---------------------------------------------------------------------------
+# Booking management endpoints
+# ---------------------------------------------------------------------------
+
+@admin_router.get(
+    "/bookings",
+    response_model=ApiResponse[PaginatedData[AdminBookingListItem]],
+    summary="List bookings (admin)",
+)
+async def admin_list_bookings(
+    status: BookingStatus | None = None,
+    provider_id: UUID | None = None,
+    customer_id: UUID | None = None,
+    service_id: UUID | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    q: str | None = None,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(12, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+):
+    return await booking_ctrl.list_bookings(
+        db,
+        status,
+        provider_id,
+        customer_id,
+        service_id,
+        date_from,
+        date_to,
+        q,
+        page,
+        page_size,
+    )
+
+
+@admin_router.get(
+    "/bookings/{booking_id}",
+    response_model=ApiResponse[AdminBookingDetailResponse],
+    summary="Get booking detail (admin)",
+)
+async def admin_get_booking(
+    booking_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    return await booking_ctrl.get_booking(db, booking_id)
+
+
 # User management endpoints
 # ---------------------------------------------------------------------------
 
