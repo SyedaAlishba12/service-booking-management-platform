@@ -8,7 +8,7 @@ from schemas.service import ServiceResponse
 
 async def list_providers(db: AsyncSession, status, is_active, q, page, page_size):
     items, total = await svc.list_providers_admin(db, status, is_active, q, page, page_size)
-    return paginated(items, total, page, page_size)
+    return ok(paginated(items, total, page, page_size))
 
 async def get_provider(db: AsyncSession, id: UUID):
     p = await svc.get_provider_admin(db, id)
@@ -20,7 +20,7 @@ async def update_provider_status(db: AsyncSession, id: UUID, payload: ProviderSt
 
 async def list_services(db: AsyncSession, category_id, provider_id, is_active, q, page, page_size):
     items, total = await svc.list_services_admin(db, category_id, provider_id, is_active, q, page, page_size)
-    return paginated(items, total, page, page_size)
+    return ok(paginated(items, total, page, page_size))
 
 async def get_service(db: AsyncSession, id: UUID):
     s = await svc.get_service_admin(db, id)
