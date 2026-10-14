@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from common.auth_stub import CurrentUser, require_roles
+from common.auth import CurrentUser, require_roles
 from common.responses import ApiResponse, PaginatedData
 from controllers import service_controller
 from database.session import get_db

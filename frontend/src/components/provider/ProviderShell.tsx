@@ -1,7 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import type { ReactNode } from "react";
+import { useAuth } from "@/app/providers/AuthProvider";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import Button from "@/components/ui/Button";
+import EmptyState from "@/components/ui/EmptyState";
 import { PROVIDER_SIDEBAR_ITEMS } from "@/constants/provider";
 
 interface ProviderShellProps {
@@ -12,7 +16,11 @@ interface ProviderShellProps {
   children: ReactNode;
 }
 
-/** Shared frame for every provider page: Syeda's DashboardLayout + provider sidebar. */
+/**
+ * Shared frame for every provider page: Syeda's DashboardLayout + provider sidebar.
+ * DashboardLayout already requires a logged-in user and shows the user's name and role.
+ * This adds the role guard: only PROVIDER accounts see these pages (the backend enforces it too).
+ */
 export default function ProviderShell({
   activeHref,
   title,
@@ -20,6 +28,9 @@ export default function ProviderShell({
   actions,
   children,
 }: ProviderShellProps) {
+  const { user } = useAuth();
+  const isProvider = user?.role === "PROVIDER";
+
   return (
     <DashboardLayout
       sidebarItems={PROVIDER_SIDEBAR_ITEMS}
@@ -27,10 +38,21 @@ export default function ProviderShell({
       title={title}
       description={description}
       breadcrumb={["Dashboard", title]}
-      userName="Provider" // TODO: use the logged-in user once auth is ready
-      actions={actions}
+      actions={isProvider ? actions : undefined}
     >
-      {children}
+      {isProvider ? (
+        children
+      ) : (
+        <EmptyState
+          title="This area is for service providers"
+          description="Sign up or log in with a provider account to manage services, availability and your profile."
+          action={
+            <Link href="/dashboard">
+              <Button>Go to my dashboard</Button>
+            </Link>
+          }
+        />
+      )}
     </DashboardLayout>
   );
 }

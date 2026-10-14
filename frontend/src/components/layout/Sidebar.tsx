@@ -21,14 +21,14 @@ function Icon({
   type,
 }: {
   type:
-    | "dashboard"
-    | "calendar"
-    | "booking"
-    | "service"
-    | "provider"
-    | "review"
-    | "category"
-    | "settings";
+  | "dashboard"
+  | "calendar"
+  | "booking"
+  | "service"
+  | "provider"
+  | "review"
+  | "category"
+  | "settings";
 }) {
   const common = {
     width: 20,
@@ -138,6 +138,8 @@ export default function Sidebar({
     "Dashboard",
     "Calendar",
     "Bookings",
+    "Earnings",
+    "Customers",
     "Services",
     "Providers",
   ];
@@ -163,11 +165,10 @@ export default function Sidebar({
         href={item.href}
         onClick={onClose}
         aria-current={active ? "page" : undefined}
-        className={`flex h-11 items-center gap-3 rounded-xl px-4 text-base font-medium transition-colors ${
-          active
+        className={`flex h-11 items-center gap-3 rounded-xl px-4 text-base font-medium transition-colors ${active
             ? "bg-sidebar text-white shadow-sm"
             : "text-foreground/75 hover:bg-brand-soft hover:text-brand"
-        }`}
+          }`}
       >
         <span className="flex h-5 w-5 shrink-0 items-center justify-center">
           {item.icon ?? (
@@ -209,9 +210,8 @@ export default function Sidebar({
 
       {/* Floating panel */}
       <aside
-        className={`fixed bottom-4 left-4 top-4 z-50 flex w-[232px] flex-col rounded-3xl bg-white shadow-[0_8px_30px_rgba(8,45,110,0.10)] transition-transform duration-200 lg:translate-x-0 ${
-          isOpen ? "translate-x-0" : "-translate-x-[120%]"
-        }`}
+        className={`fixed bottom-4 left-4 top-4 z-50 flex w-[232px] flex-col rounded-3xl bg-white shadow-[0_8px_30px_rgba(8,45,110,0.10)] transition-transform duration-200 lg:translate-x-0 ${isOpen ? "translate-x-0" : "-translate-x-[120%]"
+          }`}
       >
         {/* Brand */}
         <div className="px-5 pb-3 pt-6">

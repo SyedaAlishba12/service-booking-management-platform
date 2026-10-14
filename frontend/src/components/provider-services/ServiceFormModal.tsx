@@ -116,6 +116,11 @@ export default function ServiceFormModal({
           label="Category"
           placeholder="Select a category"
           options={categories.map((c) => ({ label: c.name, value: c.id }))}
+          hint={
+            categories.length === 0
+              ? "No categories available yet. Please ask an admin to add categories."
+              : undefined
+          }
           error={errors.category_id?.message}
           {...register("category_id")}
         />
