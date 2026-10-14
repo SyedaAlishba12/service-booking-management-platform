@@ -27,6 +27,16 @@ async def create_complaint(
 ):
     try:
         complaint = await svc.create_complaint(db, user_id, payload)
+    except svc.ComplaintNotFoundError as exc:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content=error_response(exc.message),
+        )
+    except svc.ComplaintForbiddenError as exc:
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content=error_response(exc.message),
+        )
     except svc.ComplaintValidationError as exc:
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

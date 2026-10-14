@@ -5,10 +5,31 @@ Complaint repository: raw database queries only.
 import uuid
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import Column, MetaData, Table, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.complaint import Complaint, ComplaintStatus, ComplaintType
+
+_booking_metadata = MetaData()
+_bookings = Table(
+    "bookings",
+    _booking_metadata,
+    Column("id"),
+    Column("customer_id"),
+    Column("provider_id"),
+)
+_customers = Table(
+    "customers",
+    _booking_metadata,
+    Column("id"),
+    Column("user_id"),
+)
+_providers = Table(
+    "providers",
+    _booking_metadata,
+    Column("id"),
+    Column("user_id"),
+)
 
 
 async def add(db: AsyncSession, complaint: Complaint) -> Complaint:
@@ -20,6 +41,26 @@ async def add(db: AsyncSession, complaint: Complaint) -> Complaint:
 async def get_by_id(db: AsyncSession, complaint_id: uuid.UUID) -> Complaint | None:
     result = await db.execute(select(Complaint).where(Complaint.id == complaint_id))
     return result.scalar_one_or_none()
+
+
+async def get_booking_participants(
+    db: AsyncSession, booking_id: uuid.UUID
+) -> tuple[uuid.UUID, uuid.UUID] | None:
+    """Return the customer and provider user IDs for a booking."""
+    stmt = (
+        select(_customers.c.user_id, _providers.c.user_id)
+        .select_from(
+            _bookings
+            .join(_customers, _bookings.c.customer_id == _customers.c.id)
+            .join(_providers, _bookings.c.provider_id == _providers.c.id)
+        )
+        .where(_bookings.c.id == booking_id)
+    )
+    row = (await db.execute(stmt)).one_or_none()
+    return (
+        uuid.UUID(str(row[0])),
+        uuid.UUID(str(row[1])),
+    ) if row is not None else None
 
 
 async def list_by_user(
