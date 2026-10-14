@@ -22,7 +22,7 @@ from common.responses import ApiResponse, PaginatedData
 complaints_router = APIRouter(prefix="/api/complaints", tags=["complaints"])
 
 
-@complaints_router.post("", status_code=201)
+@complaints_router.post("", status_code=201, summary="Create a complaint")
 async def create_complaint(
     payload: ComplaintCreate,
     db: AsyncSession = Depends(get_db),
@@ -31,7 +31,7 @@ async def create_complaint(
     return await ctrl.create_complaint(db, user_id, payload)
 
 
-@complaints_router.get("/me", response_model=ApiResponse[PaginatedData[ComplaintResponse]])
+@complaints_router.get("/me", response_model=ApiResponse[PaginatedData[ComplaintResponse]], summary="List my complaints")
 async def list_my_complaints(
     db: AsyncSession = Depends(get_db),
     user_id: uuid.UUID = Depends(get_current_user_id),
@@ -41,7 +41,7 @@ async def list_my_complaints(
     return await ctrl.list_my_complaints(db, user_id, page, page_size)
 
 
-@complaints_router.get("/{id}", response_model=ApiResponse[ComplaintResponse])
+@complaints_router.get("/{id}", response_model=ApiResponse[ComplaintResponse], summary="Get my complaint")
 async def get_my_complaint(
     id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
@@ -57,7 +57,7 @@ admin_router = APIRouter(
 )
 
 
-@admin_router.get("", response_model=ApiResponse[PaginatedData[ComplaintResponse]])
+@admin_router.get("", response_model=ApiResponse[PaginatedData[ComplaintResponse]], summary="List complaints (admin)")
 async def list_admin_complaints(
     db: AsyncSession = Depends(get_db),
     status: ComplaintStatus | None = Query(default=None),
@@ -71,7 +71,7 @@ async def list_admin_complaints(
     )
 
 
-@admin_router.get("/{id}", response_model=ApiResponse[ComplaintResponse])
+@admin_router.get("/{id}", response_model=ApiResponse[ComplaintResponse], summary="Get complaint details (admin)")
 async def get_admin_complaint(
     id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
@@ -79,7 +79,7 @@ async def get_admin_complaint(
     return await ctrl.get_admin_complaint(db, id)
 
 
-@admin_router.put("/{id}", response_model=ApiResponse[ComplaintResponse])
+@admin_router.put("/{id}", response_model=ApiResponse[ComplaintResponse], summary="Update complaint status (admin)")
 async def update_complaint_status(
     id: uuid.UUID,
     payload: ComplaintAdminUpdate,

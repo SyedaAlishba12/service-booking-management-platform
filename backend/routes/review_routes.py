@@ -41,7 +41,7 @@ from common.responses import ApiResponse, PaginatedData
 reviews_router = APIRouter(prefix="/api/reviews", tags=["reviews"])
 
 
-@reviews_router.post("", status_code=201)
+@reviews_router.post("", status_code=201, summary="Create a review")
 async def create_review(
     payload: ReviewCreate,
     db: AsyncSession = Depends(get_db),
@@ -52,7 +52,7 @@ async def create_review(
 
 # IMPORTANT: /me MUST be declared BEFORE /{id} to avoid FastAPI matching
 # the literal "me" as a UUID path parameter.
-@reviews_router.get("/me", response_model=ApiResponse[PaginatedData[ReviewResponse]])
+@reviews_router.get("/me", response_model=ApiResponse[PaginatedData[ReviewResponse]], summary="List my reviews")
 async def list_my_reviews(
     db: AsyncSession = Depends(get_db),
     user_id: uuid.UUID = Depends(get_current_user_id),
@@ -62,7 +62,7 @@ async def list_my_reviews(
     return await ctrl.list_my_reviews(db, user_id, page, page_size)
 
 
-@reviews_router.put("/{id}", response_model=ApiResponse[ReviewResponse])
+@reviews_router.put("/{id}", response_model=ApiResponse[ReviewResponse], summary="Update a review")
 async def update_review(
     id: uuid.UUID,
     payload: ReviewUpdate,
@@ -72,7 +72,7 @@ async def update_review(
     return await ctrl.update_review(db, user_id, id, payload)
 
 
-@reviews_router.delete("/{id}")
+@reviews_router.delete("/{id}", summary="Delete a review")
 async def delete_review(
     id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
@@ -89,7 +89,7 @@ provider_reviews_router = APIRouter(prefix="/api/providers", tags=["provider-rev
 
 
 @provider_reviews_router.get(
-    "/{provider_id}/reviews", response_model=ApiResponse[PaginatedData[ReviewResponse]]
+    "/{provider_id}/reviews", response_model=ApiResponse[PaginatedData[ReviewResponse]], summary="List provider reviews"
 )
 async def list_provider_reviews(
     provider_id: uuid.UUID,
@@ -100,7 +100,7 @@ async def list_provider_reviews(
     return await ctrl.list_provider_reviews(db, provider_id, page, page_size)
 
 
-@provider_reviews_router.get("/{provider_id}/rating", response_model=ApiResponse[RatingSummaryResponse])
+@provider_reviews_router.get("/{provider_id}/rating", response_model=ApiResponse[RatingSummaryResponse], summary="Get provider rating")
 async def get_provider_rating(
     provider_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
@@ -120,7 +120,7 @@ admin_router = APIRouter(
 )
 
 
-@admin_router.get("", response_model=ApiResponse[PaginatedData[ReviewResponse]])
+@admin_router.get("", response_model=ApiResponse[PaginatedData[ReviewResponse]], summary="List reviews (admin)")
 async def list_admin_reviews(
     db: AsyncSession = Depends(get_db),
     provider_id: uuid.UUID | None = Query(default=None),
@@ -134,7 +134,7 @@ async def list_admin_reviews(
     )
 
 
-@admin_router.put("/{id}/visibility", response_model=ApiResponse[ReviewResponse])
+@admin_router.put("/{id}/visibility", response_model=ApiResponse[ReviewResponse], summary="Update review visibility (admin)")
 async def set_review_visibility(
     id: uuid.UUID,
     payload: ReviewVisibilityUpdate,
