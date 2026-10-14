@@ -16,6 +16,7 @@ export interface Booking {
   customer_name?: string | null;
   provider_timezone?: string | null;
   payment_status?: "PENDING" | "PAID" | "FAILED" | "REFUNDED" | null;
+  created_at: string;
 }
 
 export interface PublicProvider {
