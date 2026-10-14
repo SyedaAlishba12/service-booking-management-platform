@@ -3,7 +3,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from common.auth import CurrentUser, get_current_user
+from common.auth_stub import CurrentUser, get_current_user
 from controllers import calendar_controller, earnings_controller
 from database.session import get_db
 from services.provider_service import get_provider_by_user

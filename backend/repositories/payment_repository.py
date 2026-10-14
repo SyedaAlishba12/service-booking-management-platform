@@ -5,63 +5,196 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models.booking import Booking, Payment, PaymentStatus
+from models.booking import Booking, BookingStatus, Payment, PaymentStatus
 
 
-async def provider_totals(session: AsyncSession, provider_id: UUID,
-                          period_start: datetime | None, period_end: datetime | None):
-    query = select(Payment).join(Booking, Booking.id == Payment.booking_id).where(
-        Booking.provider_id == provider_id
+ZERO = Decimal("0.00")
+
+
+def _apply_period(query, date_expression, period_start, period_end):
+    if period_start is not None:
+        query = query.where(date_expression >= period_start)
+    if period_end is not None:
+        query = query.where(date_expression < period_end)
+    return query
+
+
+async def _payment_sum(
+    session: AsyncSession,
+    amount_expression,
+    statuses: tuple[PaymentStatus, ...],
+    date_expression,
+    period_start: datetime | None,
+    period_end: datetime | None,
+    *,
+    provider_id: UUID | None = None,
+) -> Decimal:
+    query = select(
+        func.coalesce(func.sum(amount_expression), 0)
+    ).select_from(Payment)
+
+    if provider_id is not None:
+        query = query.join(
+            Booking,
+            Booking.id == Payment.booking_id,
+        ).where(Booking.provider_id == provider_id)
+
+    query = query.where(Payment.status.in_(statuses))
+    query = _apply_period(
+        query,
+        date_expression,
+        period_start,
+        period_end,
     )
-    # Earnings are recognized on capture/refund timestamps. Pending amounts use
-    # payment creation time because they do not have a paid_at timestamp yet.
-    rows = (await session.execute(query)).all()
-    zero = Decimal("0.00")
 
-    def in_period(value: datetime | None) -> bool:
-        return value is not None and (period_start is None or value >= period_start) and (
-            period_end is None or value < period_end
+    value = await session.scalar(query)
+    return Decimal(str(value or 0))
+
+
+async def provider_totals(
+    session: AsyncSession,
+    provider_id: UUID,
+    period_start: datetime | None,
+    period_end: datetime | None,
+):
+    """
+    Return payment totals by financial event date:
+    - captured payments use paid_at, falling back to created_at;
+    - refunds use refunded_at, then paid_at, then created_at;
+    - pending payments use created_at.
+    """
+    captured_date = func.coalesce(
+        Payment.paid_at,
+        Payment.created_at,
+    )
+    refund_date = func.coalesce(
+        Payment.refunded_at,
+        Payment.paid_at,
+        Payment.created_at,
+    )
+
+    gross_paid = await _payment_sum(
+        session,
+        Payment.amount,
+        (PaymentStatus.PAID, PaymentStatus.REFUNDED),
+        captured_date,
+        period_start,
+        period_end,
+        provider_id=provider_id,
+    )
+
+    refunded_amount = await _payment_sum(
+        session,
+        func.coalesce(Payment.refund_amount, 0),
+        (PaymentStatus.REFUNDED,),
+        refund_date,
+        period_start,
+        period_end,
+        provider_id=provider_id,
+    )
+
+    pending_amount = await _payment_sum(
+        session,
+        Payment.amount,
+        (PaymentStatus.PENDING,),
+        Payment.created_at,
+        period_start,
+        period_end,
+        provider_id=provider_id,
+    )
+
+    return {
+        "gross_paid": gross_paid,
+        "refunded_amount": refunded_amount,
+        "pending_amount": pending_amount,
+    }
+
+
+async def admin_status_totals(
+    session: AsyncSession,
+    period_start: datetime | None,
+    period_end: datetime | None,
+):
+    """
+    Return booking/payment status summaries plus financial totals.
+
+    Status counts and status amounts are grouped by record creation date.
+    The separate gross/refund/net fields use their financial event dates.
+    """
+    booking_query = (
+        select(
+            Booking.status,
+            func.count(Booking.id),
         )
+        .group_by(Booking.status)
+    )
+    booking_query = _apply_period(
+        booking_query,
+        Booking.created_at,
+        period_start,
+        period_end,
+    )
 
-    payments = [row[0] for row in rows]
-    gross = sum((p.amount for p in payments if p.status in (PaymentStatus.PAID, PaymentStatus.REFUNDED)
-                 and in_period(p.paid_at)), zero)
-    refunded = sum((p.refund_amount or zero for p in payments if p.status == PaymentStatus.REFUNDED
-                    and in_period(p.refunded_at)), zero)
-    pending = sum((p.amount for p in payments if p.status == PaymentStatus.PENDING
-                   and in_period(p.created_at)), zero)
-    return {"gross_paid": gross, "refunded_amount": refunded, "pending_amount": pending}
+    payment_query = (
+        select(
+            Payment.status,
+            func.count(Payment.id),
+            func.coalesce(func.sum(Payment.amount), 0),
+        )
+        .group_by(Payment.status)
+    )
+    payment_query = _apply_period(
+        payment_query,
+        Payment.created_at,
+        period_start,
+        period_end,
+    )
 
-
-async def admin_status_totals(session: AsyncSession, period_start: datetime | None, period_end: datetime | None):
-    booking_query = select(Booking.status, func.count(Booking.id)).group_by(Booking.status)
-    payment_query = select(Payment.status, func.count(Payment.id), func.coalesce(func.sum(Payment.amount), 0)).group_by(Payment.status)
-    if period_start:
-        booking_query = booking_query.where(Booking.created_at >= period_start)
-        payment_query = payment_query.where(Payment.created_at >= period_start)
-    if period_end:
-        booking_query = booking_query.where(Booking.created_at < period_end)
-        payment_query = payment_query.where(Payment.created_at < period_end)
     bookings = (await session.execute(booking_query)).all()
     payments = (await session.execute(payment_query)).all()
-    payment_rows = list((await session.scalars(select(Payment))).all())
 
-    def in_period(value: datetime | None) -> bool:
-        return value is not None and (period_start is None or value >= period_start) and (
-            period_end is None or value < period_end
-        )
+    captured_date = func.coalesce(
+        Payment.paid_at,
+        Payment.created_at,
+    )
+    refund_date = func.coalesce(
+        Payment.refunded_at,
+        Payment.paid_at,
+        Payment.created_at,
+    )
 
-    zero = Decimal("0.00")
-    gross_captured = sum((p.amount for p in payment_rows
-                          if p.status in (PaymentStatus.PAID, PaymentStatus.REFUNDED)
-                          and in_period(p.paid_at)), zero)
-    refunds = sum((p.refund_amount or zero for p in payment_rows
-                   if p.status == PaymentStatus.REFUNDED and in_period(p.refunded_at)), zero)
+    gross_paid = await _payment_sum(
+        session,
+        Payment.amount,
+        (PaymentStatus.PAID, PaymentStatus.REFUNDED),
+        captured_date,
+        period_start,
+        period_end,
+    )
+
+    refunded_amount = await _payment_sum(
+        session,
+        func.coalesce(Payment.refund_amount, 0),
+        (PaymentStatus.REFUNDED,),
+        refund_date,
+        period_start,
+        period_end,
+    )
+
     return {
-        "booking_counts_by_status": {s.value: n for s, n in bookings},
-        "payment_counts_by_status": {s.value: n for s, n, _ in payments},
-        "payment_amounts_by_status": {s.value: Decimal(amount) for s, _, amount in payments},
-        "gross_captured": gross_captured,
-        "refunds": refunds,
-        "net_collected": gross_captured - refunds,
+        "booking_counts_by_status": {
+            booking_status.value: count
+            for booking_status, count in bookings
+        },
+        "payment_counts_by_status": {
+            payment_status.value: count
+            for payment_status, count, _ in payments
+        },
+        "payment_amounts_by_status": {
+            payment_status.value: Decimal(str(amount or 0))
+            for payment_status, _, amount in payments
+        },
+        "gross_paid": gross_paid,
+        "refunded_amount": refunded_amount,
+        "net_collected": gross_paid - refunded_amount,
     }

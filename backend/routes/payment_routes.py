@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from common.auth import CurrentUser, get_current_user
+from common.auth_stub import CurrentUser, get_current_user
 from controllers import payment_controller as controller
 from database.session import get_db
 from schemas.booking import PaymentCreate, PaymentFailure, PaymentRetry, RefundRequest
