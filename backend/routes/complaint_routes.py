@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import controllers.complaint_controller as ctrl
 from database.session import get_db
-from middleware.auth_stub import get_current_user_id, require_admin
+from middleware.admin_guard import get_current_user_id, require_admin
 from models.complaint import ComplaintStatus, ComplaintType
 from schemas.complaint import (
     ComplaintAdminUpdate,

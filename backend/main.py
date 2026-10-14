@@ -1,6 +1,7 @@
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+# pyrefly: ignore [missing-import]
 from slowapi.middleware import SlowAPIMiddleware
 
 from common.error_handlers import register_error_handlers
@@ -35,12 +36,14 @@ from routes import (
     provider_routes,
     service_routes,
 )
+from routes.admin_routes import admin_router as admin_management_router
 from routes.category_routes import admin_router as category_admin_router
 from routes.category_routes import public_router as category_public_router
 from routes.complaint_routes import admin_router as complaint_admin_router
 from routes.complaint_routes import complaints_router as complaint_user_router
 from routes.platform_setting_routes import admin_router as setting_admin_router
 from routes.platform_setting_routes import public_router as setting_public_router
+from routes.report_routes import admin_router as report_admin_router
 from routes.review_routes import admin_router as review_admin_router
 from routes.review_routes import provider_reviews_router as review_provider_router
 from routes.review_routes import reviews_router as review_user_router
@@ -108,6 +111,8 @@ for module in (
     review_admin_router,
     complaint_user_router,
     complaint_admin_router,
+    report_admin_router,
+    admin_management_router,
 ):
     app.include_router(module)
 

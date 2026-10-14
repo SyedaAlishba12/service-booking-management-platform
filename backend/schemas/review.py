@@ -106,6 +106,8 @@ class ReviewResponse(BaseModel):
     is_visible: bool
     created_at: datetime
     updated_at: datetime
+    reviewer_name: str | None = None
+    service_name: str | None = None
 
 
 class RatingSummaryResponse(BaseModel):

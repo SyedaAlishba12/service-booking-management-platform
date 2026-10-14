@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from main import app
 from database.base import Base
 from database.session import get_db
-from middleware.auth_stub import get_current_user_id, require_admin
+from middleware.admin_guard import get_current_user_id, require_admin
 
 # Stub tables for missing modules
 for _table_name in ("users", "bookings", "providers", "services"):

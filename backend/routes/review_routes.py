@@ -12,11 +12,8 @@ admin_router            prefix=/api/admin/reviews     (admin-guarded)
 
 Auth note
 ---------
-get_current_user_id: NOT SECURE, DEV ONLY.
-TODO: Replace with Zainab's authenticated-user dependency before any deployment.
-
-require_admin: NOT SECURE, DEV ONLY.
-TODO: Replace with Zainab's role-based dependency before any deployment.
+get_current_user_id: derives user_id from the authenticated JWT token.
+require_admin: requires a valid JWT and the ADMIN role (middleware/admin_guard.py).
 """
 
 import uuid
@@ -26,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import controllers.review_controller as ctrl
 from database.session import get_db
-from middleware.auth_stub import get_current_user_id, require_admin
+from middleware.admin_guard import get_current_user_id, require_admin
 from schemas.review import (
     ReviewCreate,
     ReviewResponse,
@@ -113,7 +110,7 @@ async def get_provider_rating(
 
 # ---------------------------------------------------------------------------
 # Admin router  —  /api/admin/reviews
-# Entire router is guarded by the require_admin dependency (stub for now).
+# Entire router is guarded by the require_admin dependency.
 # ---------------------------------------------------------------------------
 
 admin_router = APIRouter(
