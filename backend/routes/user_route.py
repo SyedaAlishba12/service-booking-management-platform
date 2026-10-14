@@ -14,6 +14,7 @@ from schemas.user_schema import (
     UserStatusUpdateRequest,
     UserUpdateRequest,
 )
+from uuid import UUID
 
 router = APIRouter(
     prefix="/api/users",

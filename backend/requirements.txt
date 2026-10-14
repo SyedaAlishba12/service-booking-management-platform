@@ -29,3 +29,15 @@ APScheduler==3.11.3
 PyJWT==2.15.1
 pwdlib[argon2]==0.3.1
 slowapi==0.1.10
+argon2-cffi==25.1.0
+argon2-cffi-bindings==26.1.0
+cffi==2.1.1
+Deprecated==3.0.0
+dnspython==2.8.0
+email-validator==2.3.0
+limits==5.8.0
+packaging==26.3
+pycparser==3.0
+python-multipart==0.0.32
+wrapt==2.5.0
+psycopg[binary]==3.3.6
