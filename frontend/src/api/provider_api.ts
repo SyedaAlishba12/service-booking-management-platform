@@ -4,8 +4,8 @@
  * Mock mode is ON unless NEXT_PUBLIC_USE_MOCK=false, so pages work before the database,
  * auth and categories API are ready. Set it to false in frontend/.env.local to use the backend.
  *
- * Until real auth exists, the backend stub needs two headers (development only):
- *   NEXT_PUBLIC_DEBUG_USER_ID, NEXT_PUBLIC_DEBUG_ROLE=PROVIDER
+ * Authentication: the shared apiClient adds the logged-in user's Bearer token to every call,
+ * so nothing auth-related is needed here.
  */
 import type {
   CategoryOption,
@@ -15,12 +15,6 @@ import type {
 import { apiClient } from "@/utils/api_client";
 
 export const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK !== "false";
-
-export function debugHeaders(): HeadersInit {
-  const id = process.env.NEXT_PUBLIC_DEBUG_USER_ID;
-  const role = process.env.NEXT_PUBLIC_DEBUG_ROLE ?? "PROVIDER";
-  return id ? { "X-Debug-User-Id": id, "X-Debug-Role": role } : {};
-}
 
 // ---------------- mock data (in memory, resets on refresh) ----------------
 const MOCK_CATEGORIES: CategoryOption[] = [
@@ -82,18 +76,14 @@ function toService(payload: ServicePayload, id: string): ProviderService {
 // ---------------- API ----------------
 export const providerApi = {
   listCategories(): Promise<CategoryOption[]> {
-    // TODO: switch to Taha's GET /api/categories when it is ready (check its response shape).
+    // Taha's GET /api/categories returns a plain array of active categories (id, name, slug, ...).
     if (USE_MOCK) return delay(MOCK_CATEGORIES);
-    return apiClient.get<CategoryOption[]>("/api/categories", {
-      headers: debugHeaders(),
-    });
+    return apiClient.get<CategoryOption[]>("/api/categories");
   },
 
   listMyServices(): Promise<ProviderService[]> {
     if (USE_MOCK) return delay([...mockServices]);
-    return apiClient.get<ProviderService[]>("/api/services/me", {
-      headers: debugHeaders(),
-    });
+    return apiClient.get<ProviderService[]>("/api/services/me");
   },
 
   createService(payload: ServicePayload): Promise<ProviderService> {
@@ -102,9 +92,7 @@ export const providerApi = {
       mockServices = [created, ...mockServices];
       return delay(created);
     }
-    return apiClient.post<ProviderService>("/api/services", payload, {
-      headers: debugHeaders(),
-    });
+    return apiClient.post<ProviderService>("/api/services", payload);
   },
 
   updateService(id: string, payload: Partial<ServicePayload>): Promise<ProviderService> {
@@ -123,9 +111,7 @@ export const providerApi = {
       );
       return delay(mockServices.find((s) => s.id === id) as ProviderService);
     }
-    return apiClient.put<ProviderService>(`/api/services/${id}`, payload, {
-      headers: debugHeaders(),
-    });
+    return apiClient.put<ProviderService>(`/api/services/${id}`, payload);
   },
 
   setServiceActive(id: string, is_active: boolean): Promise<ProviderService> {
@@ -138,7 +124,6 @@ export const providerApi = {
     return apiClient.put<ProviderService>(
       `/api/services/${id}/status`,
       { is_active },
-      { headers: debugHeaders() },
     );
   },
 };
