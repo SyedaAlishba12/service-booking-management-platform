@@ -1,4 +1,3 @@
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi.middleware import SlowAPIMiddleware
@@ -27,6 +26,7 @@ from models import (
 
 from routes.auth_route import router as auth_router
 from routes.user_route import router as user_router
+from routes.notification_route import router as notification_router  # <-- Added Notification Router
 from routes import (
     availability_routes,
     booking_routes,
@@ -97,7 +97,7 @@ for module in (
 ):
     app.include_router(module.router)
 
-# Category / Settings / Reviews / Complaints
+# Category / Settings / Reviews / Complaints / Notifications
 for module in (
     category_public_router,
     category_admin_router,
@@ -108,6 +108,7 @@ for module in (
     review_admin_router,
     complaint_user_router,
     complaint_admin_router,
+    notification_router,  # <-- Included here
 ):
     app.include_router(module)
 

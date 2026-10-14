@@ -187,6 +187,15 @@ export default function Sidebar({
     ? user.full_name.charAt(0).toUpperCase()
     : "U";
 
+  // Profile image URL formatting with backend base URL fallback
+  const profileImageUrl = user?.profile_image_url
+    ? user.profile_image_url.startsWith("http")
+      ? user.profile_image_url
+      : `${(
+          process.env.NEXT_PUBLIC_API_URL ?? ""
+        ).replace(/\/$/, "")}${user.profile_image_url}`
+    : null;
+
   return (
     <>
       {isOpen && (
@@ -248,9 +257,9 @@ export default function Sidebar({
 
           <div className="mt-2 flex items-center gap-3 rounded-xl px-4 py-2.5">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-sidebar text-base font-semibold text-white">
-              {user?.profile_image_url ? (
+              {profileImageUrl ? (
                 <img
-                  src={user.profile_image_url}
+                  src={profileImageUrl}
                   alt={displayName}
                   className="h-full w-full object-cover"
                 />

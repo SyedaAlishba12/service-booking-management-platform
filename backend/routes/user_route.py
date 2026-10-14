@@ -1,5 +1,5 @@
 
-from uuid import UUID
+from uuid import uuid4
 from pathlib import Path
 
 from fastapi import File, HTTPException, UploadFile, status
@@ -129,7 +129,7 @@ async def upload_profile_image(
     )
     upload_dir.mkdir(parents=True, exist_ok=True)
 
-    filename = f"{UUID().hex}{extension}"
+    filename = f"{uuid4().hex}{extension}"
     destination = upload_dir / filename
 
     try:
