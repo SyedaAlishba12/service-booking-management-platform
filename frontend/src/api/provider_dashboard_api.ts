@@ -7,6 +7,7 @@
  *
  * Services and availability summaries are NOT mocked here: they come from my own API hooks.
  */
+import type { PaginatedData } from "@/types/api";
 import type { ProviderDashboardExtras, ProviderReview } from "@/types/provider_dashboard";
 import { delay, USE_MOCK } from "./provider_api";
 import { bookingApi } from "@/api/booking_api";
@@ -14,6 +15,15 @@ import { providerProfileApi } from "@/api/provider_profile_api";
 import { ApiError, apiClient } from "@/utils/api_client";
 import type { Booking } from "@/types/booking";
 import type { Provider } from "@/types/provider";
+
+interface RawReview {
+  id: string;
+  user_id: string;
+  service_id: string;
+  rating: number;
+  comment: string | null;
+  created_at: string;
+}
 
 const SAMPLE: ProviderDashboardExtras = {
   bookings: {
@@ -45,9 +55,20 @@ const SAMPLE_REVIEWS: ProviderReview[] = [
 ];
 
 export const providerDashboardApi = {
-  // TODO: Taha's GET /api/providers/{provider_id}/reviews (paginated) once merged.
-  getReviews(): Promise<ProviderReview[]> {
-    return delay(SAMPLE_REVIEWS);
+  async getReviews(providerId: string): Promise<ProviderReview[]> {
+    if (USE_MOCK) return delay(SAMPLE_REVIEWS);
+    const page = await apiClient.get<PaginatedData<RawReview>>(
+      `/api/providers/${providerId}/reviews?page=1&page_size=12`,
+    );
+    // Taha's items have user_id/service_id only (no names yet), so show placeholders.
+    return page.items.map((r) => ({
+      id: r.id,
+      customer_name: "Customer",
+      service_name: null,
+      rating: r.rating,
+      comment: r.comment,
+      created_at: r.created_at,
+    }));
   },
 
   async getExtras(): Promise<ProviderDashboardExtras> {

@@ -19,7 +19,7 @@ class Customer(Base):
 
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="CASCADE"),
         unique=True,
         nullable=False,
         index=True,
@@ -40,5 +40,6 @@ class Customer(Base):
 
     user = relationship(
         "User",
-        backref="customer_profile",
+        back_populates="customer_profile",
     )
+

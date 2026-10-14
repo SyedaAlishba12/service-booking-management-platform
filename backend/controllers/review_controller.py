@@ -17,7 +17,8 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import services.review_service as svc
-from common.response import error_response, success_response
+from common.response import error_response
+from common.responses import ok, paginated
 from schemas.review import (
     ReviewCreate,
     ReviewResponse,
@@ -33,7 +34,12 @@ from schemas.review import (
 
 
 def _serialise(obj) -> dict:
-    """Convert a Review ORM object to the ReviewResponse dict."""
+    """Convert a Review ORM object (or tuple of review, reviewer_name, service_name) to the ReviewResponse dict."""
+    if isinstance(obj, (tuple, list)):
+        review, reviewer_name, service_name = obj
+        review.reviewer_name = reviewer_name
+        review.service_name = service_name
+        return ReviewResponse.model_validate(review).model_dump(mode="json")
     return ReviewResponse.model_validate(obj).model_dump(mode="json")
 
 
@@ -78,22 +84,22 @@ async def create_review(
         )
     return JSONResponse(
         status_code=status.HTTP_201_CREATED,
-        content=success_response(
+        content=ok(
             data=_serialise(review),
             message="Review created successfully",
-        ),
+        ).model_dump(mode="json"),
     )
 
 
 async def list_my_reviews(
     db: AsyncSession,
     user_id: uuid.UUID,
-    limit: int = 20,
-    offset: int = 0,
+    page: int = 1,
+    page_size: int = 12,
 ):
-    reviews = await svc.list_my_reviews(db, user_id, limit, offset)
-    return success_response(
-        data=_serialise_list(reviews),
+    reviews, total = await svc.list_my_reviews(db, user_id, page, page_size)
+    return ok(
+        data=paginated(_serialise_list(reviews), total, page, page_size),
         message="Reviews retrieved successfully",
     )
 
@@ -121,7 +127,7 @@ async def update_review(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             content=error_response(exc.message),
         )
-    return success_response(
+    return ok(
         data=_serialise(review),
         message="Review updated successfully",
     )
@@ -142,7 +148,7 @@ async def delete_review(
             status_code=status.HTTP_403_FORBIDDEN,
             content=error_response(exc.message),
         )
-    return success_response(
+    return ok(
         data=None,
         message="Review deleted successfully",
     )
@@ -156,19 +162,19 @@ async def delete_review(
 async def list_provider_reviews(
     db: AsyncSession,
     provider_id: uuid.UUID,
-    limit: int = 20,
-    offset: int = 0,
+    page: int = 1,
+    page_size: int = 12,
 ):
-    reviews = await svc.list_provider_reviews(db, provider_id, limit, offset)
-    return success_response(
-        data=_serialise_list(reviews),
+    reviews, total = await svc.list_provider_reviews(db, provider_id, page, page_size)
+    return ok(
+        data=paginated(_serialise_list(reviews), total, page, page_size),
         message="Provider reviews retrieved successfully",
     )
 
 
 async def get_provider_rating(db: AsyncSession, provider_id: uuid.UUID):
     summary = await svc.get_rating_summary(db, provider_id)
-    return success_response(
+    return ok(
         data=_serialise_summary(summary),
         message="Rating summary retrieved successfully",
     )
@@ -184,14 +190,14 @@ async def list_admin_reviews(
     provider_id: uuid.UUID | None = None,
     rating: int | None = None,
     is_visible: bool | None = None,
-    limit: int = 20,
-    offset: int = 0,
+    page: int = 1,
+    page_size: int = 12,
 ):
-    reviews = await svc.list_admin_reviews(
-        db, provider_id, rating, is_visible, limit, offset
+    reviews, total = await svc.list_admin_reviews(
+        db, provider_id, rating, is_visible, page, page_size
     )
-    return success_response(
-        data=_serialise_list(reviews),
+    return ok(
+        data=paginated(_serialise_list(reviews), total, page, page_size),
         message="Reviews retrieved successfully",
     )
 
@@ -208,7 +214,7 @@ async def set_review_visibility(
             status_code=status.HTTP_404_NOT_FOUND,
             content=error_response(exc.message),
         )
-    return success_response(
+    return ok(
         data=_serialise(review),
         message="Review visibility updated successfully",
     )

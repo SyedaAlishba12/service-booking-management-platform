@@ -1,6 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+
+import { useAuth } from "@/app/providers/AuthProvider";
 
 interface UserMenuProps {
   userName?: string;
@@ -27,11 +31,48 @@ function ChevronIcon() {
 }
 
 export default function UserMenu({
-  userName = "Ali",
-  userEmail = "ali@example.com",
-  role = "Customer",
+  userName,
+  userEmail,
+  role,
 }: UserMenuProps) {
   const [open, setOpen] = useState(false);
+
+  const router = useRouter();
+
+  const {
+    user,
+    logout,
+  } = useAuth();
+
+  const displayName =
+    userName ?? user?.full_name ?? "User";
+
+  const displayEmail =
+    userEmail ?? user?.email ?? "";
+
+  const displayRole =
+    role ??
+    (user?.role
+      ? user.role.charAt(0) +
+        user.role.slice(1).toLowerCase()
+      : "Customer");
+
+  // Profile image URL formatting with backend base URL fallback
+  const profileImageUrl = user?.profile_image_url
+    ? user.profile_image_url.startsWith("http")
+      ? user.profile_image_url
+      : `${(
+          process.env.NEXT_PUBLIC_API_URL ?? ""
+        ).replace(/\/$/, "")}${user.profile_image_url}`
+    : null;
+
+  const handleLogout = async () => {
+    setOpen(false);
+
+    await logout();
+
+    router.replace("/login");
+  };
 
   return (
     <div className="relative">
@@ -42,17 +83,25 @@ export default function UserMenu({
         aria-expanded={open}
         aria-haspopup="menu"
       >
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-sidebar text-sm font-semibold text-white">
-          {userName.charAt(0).toUpperCase()}
+        <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-sidebar text-sm font-semibold text-white">
+          {profileImageUrl ? (
+            <img
+              src={profileImageUrl}
+              alt={displayName}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            displayName.charAt(0).toUpperCase()
+          )}
         </span>
 
         <span className="hidden max-w-[120px] text-left xl:block">
           <span className="block truncate text-sm font-semibold leading-5 text-foreground">
-            {userName}
+            {displayName}
           </span>
 
           <span className="block truncate text-xs leading-5 text-muted">
-            {role}
+            {displayRole}
           </span>
         </span>
 
@@ -76,38 +125,38 @@ export default function UserMenu({
           >
             <div className="border-b border-line px-3.5 py-3">
               <p className="truncate text-sm font-semibold text-foreground">
-                {userName}
+                {displayName}
               </p>
 
               <p className="mt-0.5 truncate text-xs text-muted">
-                {userEmail}
+                {displayEmail}
               </p>
             </div>
 
             <div className="p-1.5">
-              <button
-                type="button"
+              <Link
+                href="/profile"
                 role="menuitem"
-                className="flex w-full rounded-xl px-3 py-2.5 text-left text-sm font-medium text-foreground transition-colors hover:bg-brand-soft hover:text-brand"
                 onClick={() => setOpen(false)}
+                className="flex w-full rounded-xl px-3 py-2.5 text-left text-sm font-medium text-foreground transition-colors hover:bg-brand-soft hover:text-brand"
               >
                 Profile
-              </button>
+              </Link>
 
-              <button
-                type="button"
+              <Link
+                href="/profile"
                 role="menuitem"
-                className="flex w-full rounded-xl px-3 py-2.5 text-left text-sm font-medium text-foreground transition-colors hover:bg-brand-soft hover:text-brand"
                 onClick={() => setOpen(false)}
+                className="flex w-full rounded-xl px-3 py-2.5 text-left text-sm font-medium text-foreground transition-colors hover:bg-brand-soft hover:text-brand"
               >
-                Settings
-              </button>
+                Account settings
+              </Link>
 
               <button
                 type="button"
                 role="menuitem"
                 className="flex w-full rounded-xl px-3 py-2.5 text-left text-sm font-medium text-danger transition-colors hover:bg-danger-soft"
-                onClick={() => setOpen(false)}
+                onClick={handleLogout}
               >
                 Sign out
               </button>

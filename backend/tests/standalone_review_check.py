@@ -27,29 +27,41 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from database.base import Base
+from decimal import Decimal
 from models.review import Review  # noqa: F401  — registers Review in metadata
+try:
+    from models.user import User  # noqa: F401
+    from models.booking import Booking  # noqa: F401
+    from models.category import Category  # noqa: F401
+    from models.provider import Provider  # noqa: F401
+    from models.service import Service, ServiceType  # noqa: F401
+    from models.customer import Customer  # noqa: F401
+    from models.availability import Availability  # noqa: F401
+    from models.notification import Notification  # noqa: F401
+except ImportError:
+    pass
+import services.review_service as svc  # noqa: E402
+import controllers.review_controller as ctrl  # noqa: E402
+import repositories.review_repository as repo  # noqa: E402
+from schemas.review import ReviewCreate, ReviewUpdate, ReviewVisibilityUpdate, ReviewResponse  # noqa: E402
+from services.booking_eligibility import (  # noqa: E402
+    EligibilityUnavailableError,
+    ReviewEligibility,
+    set_eligibility_provider,
+)
 
 # ---------------------------------------------------------------------------
 # Stub tables for FK dependencies (not yet in local Base.metadata).
-# Only register when absent so this script is safe to run after those
-# modules are merged.
+# We run this AFTER imports so real models take precedence, and we only
+# stub what is still missing before create_all().
 # ---------------------------------------------------------------------------
-for _table_name in ("users", "bookings", "providers", "services"):
+for _table_name in ("users", "bookings", "providers", "services", "categories", "customers"):
     if _table_name not in Base.metadata.tables:
         Table(
             _table_name,
             Base.metadata,
             Column("id", PG_UUID(as_uuid=True), primary_key=True),
         )
-
-# Import after path + stub setup
-import services.review_service as svc  # noqa: E402
-from schemas.review import ReviewCreate, ReviewUpdate, ReviewVisibilityUpdate  # noqa: E402
-from services.booking_eligibility import (  # noqa: E402
-    EligibilityUnavailableError,
-    ReviewEligibility,
-    set_eligibility_provider,
-)
 
 # ---------------------------------------------------------------------------
 # Engine + session factory (in-memory SQLite)
@@ -60,10 +72,12 @@ SessionFactory = async_sessionmaker(
     bind=ENGINE, class_=AsyncSession, expire_on_commit=False
 )
 
-
 async def create_tables():
     async with ENGINE.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+# (Global mock removed. Tests now run with the real hook, which swallows errors on missing providers.)
+ORIGINAL_NOTIFY_HOOK = getattr(svc, "_notify_provider_new_review", None)
 
 
 # ---------------------------------------------------------------------------
@@ -316,7 +330,7 @@ async def test_admin_hide_removes_from_public_and_rating(db: AsyncSession):
     assert review is not None
 
     # Confirm it appears in public list before hiding
-    public_before = await svc.list_provider_reviews(db, PROVIDER_1)
+    public_before, _ = await svc.list_provider_reviews(db, PROVIDER_1)
     ids_before = [r.id for r in public_before]
     assert review.id in ids_before, "review should be in public list before hide"
 
@@ -324,7 +338,7 @@ async def test_admin_hide_removes_from_public_and_rating(db: AsyncSession):
     await svc.set_visibility(db, review.id, False)
 
     # Must not appear in public list after hiding
-    public_after = await svc.list_provider_reviews(db, PROVIDER_1)
+    public_after, _ = await svc.list_provider_reviews(db, PROVIDER_1)
     ids_after = [r.id for r in public_after]
     assert review.id not in ids_after, "hidden review should not appear in public list"
 
@@ -349,7 +363,7 @@ async def test_admin_unhide_restores_both(db: AsyncSession):
 
     await svc.set_visibility(db, review.id, True)
 
-    public_after = await svc.list_provider_reviews(db, PROVIDER_1)
+    public_after, _ = await svc.list_provider_reviews(db, PROVIDER_1)
     assert review.id in [r.id for r in public_after], "unhidden review not in public list"
 
     total_after = (await svc.get_rating_summary(db, PROVIDER_1))["total_reviews"]
@@ -420,30 +434,650 @@ async def test_min_rating_filter(db: AsyncSession):
     ok(label)
 
 
-async def test_notification_hook_failure_does_not_fail_creation(db: AsyncSession):
-    label = "notification hook raising does not fail review creation"
-    # Patch the internal hook to raise
+class FakeProvider:
+    def __init__(self, user_id):
+        self.user_id = user_id
+
+async def test_notify_hook_called_on_create(db: AsyncSession):
+    label = "notification hook called exactly once on create"
     import services.review_service as svc_module
+    calls = []
+    
+    async def fake_get_provider(session, provider_id):
+        return FakeProvider(user_id=USER_B)
+        
+    async def fake_notify(session, *, user_id, notification_type, title, message, entity_type=None, entity_id=None):
+        calls.append(dict(
+            user_id=user_id, type=notification_type, message=message, entity_id=entity_id
+        ))
+        
+    orig_get = getattr(svc_module, "get_provider", None)
+    orig_notify = getattr(svc_module, "notify", None)
+    svc_module.get_provider = fake_get_provider
+    svc_module.notify = fake_notify
+    svc_module._notify_provider_new_review = ORIGINAL_NOTIFY_HOOK
+    
+    try:
+        set_eligibility_provider(make_fake_provider(provider_id=PROVIDER_1))
+        booking_id = uuid.uuid4()
+        review = await svc_module.create_review(db, USER_A, ReviewCreate(booking_id=booking_id, rating=5, comment="Nice"))
+        
+        import repositories.review_repository as repo_direct
+        fresh_review = await repo_direct.get_by_booking_id(db, booking_id)
+        assert len(calls) == 1, "notify should be called exactly once"
+        call = calls[0]
+        assert call["user_id"] == USER_B, "user_id should match provider's user_id"
+        assert call["type"] == "NEW_REVIEW"
+        assert call["entity_id"] == fresh_review.id
+        assert "5-star" in call["message"]
+        ok(label)
+    finally:
+        svc_module.get_provider = orig_get
+        svc_module.notify = orig_notify
+        svc_module._notify_provider_new_review = ORIGINAL_NOTIFY_HOOK
 
-    original_hook = svc_module._notify_provider_new_review
+async def test_notify_not_called_on_update_delete(db: AsyncSession):
+    label = "notification hook NOT called on update or delete"
+    import services.review_service as svc_module
+    calls = []
+    
+    async def fake_get_provider(session, provider_id):
+        return FakeProvider(user_id=USER_B)
+        
+    async def fake_notify(*args, **kwargs):
+        calls.append(kwargs)
+        
+    orig_get = getattr(svc_module, "get_provider", None)
+    orig_notify = getattr(svc_module, "notify", None)
+    svc_module.get_provider = fake_get_provider
+    svc_module.notify = fake_notify
+    svc_module._notify_provider_new_review = ORIGINAL_NOTIFY_HOOK
+    
+    try:
+        set_eligibility_provider(make_fake_provider(provider_id=PROVIDER_1))
+        booking_id = uuid.uuid4()
+        review = await svc_module.create_review(db, USER_A, ReviewCreate(booking_id=booking_id, rating=4))
+        calls.clear()
+        
+        import repositories.review_repository as repo_direct
+        fresh_review = await repo_direct.get_by_booking_id(db, booking_id)
+        
+        await svc_module.update_review(db, USER_A, fresh_review.id, ReviewUpdate(rating=5))
+        assert len(calls) == 0, "notify should not be called on update"
+        
+        await svc_module.delete_review(db, USER_A, fresh_review.id)
+        assert len(calls) == 0, "notify should not be called on delete"
+        ok(label)
+    finally:
+        svc_module.get_provider = orig_get
+        svc_module.notify = orig_notify
+        svc_module._notify_provider_new_review = ORIGINAL_NOTIFY_HOOK
 
-    async def _bad_hook(review):
-        raise RuntimeError("Notification system exploded!")
+async def test_notify_not_called_on_provider_error(db: AsyncSession):
+    label = "creation succeeds but notify skipped if get_provider raises"
+    import services.review_service as svc_module
+    from fastapi import HTTPException
+    from schemas.review import ReviewResponse
+    calls = []
+    
+    async def fake_get_provider(session, provider_id):
+        raise HTTPException(status_code=404, detail="Provider not found")
+        
+    async def fake_notify(*args, **kwargs):
+        calls.append(kwargs)
+        
+    orig_get = getattr(svc_module, "get_provider", None)
+    orig_notify = getattr(svc_module, "notify", None)
+    svc_module.get_provider = fake_get_provider
+    svc_module.notify = fake_notify
+    svc_module._notify_provider_new_review = ORIGINAL_NOTIFY_HOOK
+    
+    try:
+        set_eligibility_provider(make_fake_provider(provider_id=PROVIDER_1))
+        booking_id = uuid.uuid4()
+        review = await svc_module.create_review(db, USER_A, ReviewCreate(booking_id=booking_id, rating=4))
+        assert len(calls) == 0, "notify should not be called if get_provider raises"
+        
+        # New assertions on the returned object
+        assert review.id is not None
+        assert review.rating == 4
+        assert review.provider_id == PROVIDER_1
+        ReviewResponse.model_validate(review)
+        
+        import repositories.review_repository as repo_direct
+        fresh = await repo_direct.get_by_booking_id(db, booking_id)
+        assert fresh is not None, "review should still be created"
+        ok(label)
+    finally:
+        svc_module.get_provider = orig_get
+        svc_module.notify = orig_notify
+        svc_module._notify_provider_new_review = ORIGINAL_NOTIFY_HOOK
 
-    svc_module._notify_provider_new_review = _bad_hook
+async def test_notify_error_swallowed(db: AsyncSession):
+    label = "creation succeeds if notify raises"
+    import services.review_service as svc_module
+    from schemas.review import ReviewResponse
+    
+    async def fake_get_provider(session, provider_id):
+        return FakeProvider(user_id=USER_B)
+        
+    async def fake_notify(*args, **kwargs):
+        raise RuntimeError("Notification failed")
+        
+    orig_get = getattr(svc_module, "get_provider", None)
+    orig_notify = getattr(svc_module, "notify", None)
+    svc_module.get_provider = fake_get_provider
+    svc_module.notify = fake_notify
+    svc_module._notify_provider_new_review = ORIGINAL_NOTIFY_HOOK
+    
+    try:
+        set_eligibility_provider(make_fake_provider(provider_id=PROVIDER_1))
+        booking_id = uuid.uuid4()
+        review = await svc_module.create_review(db, USER_A, ReviewCreate(booking_id=booking_id, rating=4))
+        
+        # New assertions on the returned object
+        assert review.id is not None
+        assert review.rating == 4
+        assert review.provider_id == PROVIDER_1
+        ReviewResponse.model_validate(review)
+        
+        import repositories.review_repository as repo_direct
+        fresh_review = await repo_direct.get_by_booking_id(db, booking_id)
+        assert fresh_review is not None, "review should be in the DB"
+        ok(label)
+    finally:
+        svc_module.get_provider = orig_get
+        svc_module.notify = orig_notify
+        svc_module._notify_provider_new_review = ORIGINAL_NOTIFY_HOOK
+
+async def test_notify_not_called_on_conflict(db: AsyncSession):
+    label = "duplicate conflict does not call notify"
+    import services.review_service as svc_module
+    calls = []
+    
+    async def fake_get_provider(session, provider_id):
+        return FakeProvider(user_id=USER_B)
+        
+    async def fake_notify(*args, **kwargs):
+        calls.append(kwargs)
+        
+    orig_get = getattr(svc_module, "get_provider", None)
+    orig_notify = getattr(svc_module, "notify", None)
+    svc_module.get_provider = fake_get_provider
+    svc_module.notify = fake_notify
+    svc_module._notify_provider_new_review = ORIGINAL_NOTIFY_HOOK
+    
+    try:
+        set_eligibility_provider(make_fake_provider(provider_id=PROVIDER_1))
+        booking_id = uuid.uuid4()
+        await svc_module.create_review(db, USER_A, ReviewCreate(booking_id=booking_id, rating=4))
+        calls.clear()
+        
+        try:
+            await svc_module.create_review(db, USER_A, ReviewCreate(booking_id=booking_id, rating=5))
+        except svc_module.ReviewConflictError:
+            pass
+            
+        assert len(calls) == 0, "notify should not be called on conflict"
+        ok(label)
+    finally:
+        svc_module.get_provider = orig_get
+        svc_module.notify = orig_notify
+        svc_module._notify_provider_new_review = ORIGINAL_NOTIFY_HOOK
+
+async def test_pagination_provider_visible_reviews(db: AsyncSession):
+    label = "pagination: provider visible reviews slices correctly and handles visibility"
+    from sqlalchemy import delete
+    await db.execute(delete(Review))
+    await db.commit()
+    
+    provider_id = uuid.uuid4()
+    set_eligibility_provider(make_fake_provider(provider_id=provider_id))
+    
+    reviews = []
+    for i in range(5):
+        c = ReviewCreate(booking_id=uuid.uuid4(), rating=5, comment=f"p{i}")
+        r = await svc.create_review(db, USER_A, c)
+        reviews.append(r)
+
+    p1, total = await svc.list_provider_reviews(db, provider_id, page=1, page_size=2)
+    assert len(p1) == 2
+    assert total == 5
+
+    p2, total2 = await svc.list_provider_reviews(db, provider_id, page=2, page_size=2)
+    assert len(p2) == 2
+    assert total2 == 5
+    assert {r.id for r in p1}.isdisjoint({r.id for r in p2})
+
+    p3, total3 = await svc.list_provider_reviews(db, provider_id, page=3, page_size=2)
+    assert len(p3) == 1
+    assert total3 == 5
+
+    p4, total4 = await svc.list_provider_reviews(db, provider_id, page=4, page_size=2)
+    assert len(p4) == 0
+    assert total4 == 5
+
+    # hide one review
+    await svc.set_visibility(db, reviews[0].id, False)
+    
+    p1_hidden, total_hidden = await svc.list_provider_reviews(db, provider_id, page=1, page_size=2)
+    assert total_hidden == 4
+    ok(label)
+
+async def test_real_notify_path(db: AsyncSession):
+    label = "creation succeeds and creates real notification row"
+    import services.review_service as svc_module
+    from schemas.review import ReviewResponse
+    from models.user import User
+    from models.provider import Provider
+    from models.notification import Notification, NotificationType
+    from sqlalchemy import select
+    from services.provider_service import get_provider
+    from services.notification_integration import notify
+
+    orig_get = getattr(svc_module, "get_provider", None)
+    orig_notify = getattr(svc_module, "notify", None)
+    
+    svc_module.get_provider = get_provider
+    svc_module.notify = notify
+    svc_module._notify_provider_new_review = ORIGINAL_NOTIFY_HOOK
 
     try:
-        set_eligibility_provider(make_fake_provider())
-        booking_id = uuid.uuid4()
-        review = await svc.create_review(
-            db, USER_A, ReviewCreate(booking_id=booking_id, rating=5)
+        new_user_id = uuid.uuid4()
+        new_provider_id = uuid.uuid4()
+        
+        user = User(
+            id=new_user_id,
+            full_name="Real Provider User",
+            email=f"{new_user_id}@test.com",
+            password_hash="test",
+            role="PROVIDER"
         )
-        assert review.id is not None, "review should have been created"
+        db.add(user)
+        
+        provider = Provider(
+            id=new_provider_id,
+            user_id=new_user_id,
+            business_name="Real Provider",
+            location="123 Test St",
+            timezone="UTC",
+            slot_interval_minutes=30
+        )
+        db.add(provider)
+        await db.commit()
+
+        set_eligibility_provider(make_fake_provider(provider_id=new_provider_id))
+        booking_id = uuid.uuid4()
+        
+        try:
+            review = await svc_module.create_review(db, USER_A, ReviewCreate(booking_id=booking_id, rating=5, comment="Real notify"))
+        except Exception:
+            import traceback
+            print("FAILED create_review exception:")
+            traceback.print_exc()
+            raise
+
+        assert review.id is not None
+        assert review.provider_id == new_provider_id
+        ReviewResponse.model_validate(review)
+
+        result = await db.execute(select(Notification).where(Notification.user_id == new_user_id))
+        notifications = result.scalars().all()
+        
+        if len(notifications) != 1:
+            print(f"FAILED: Expected 1 notification, got {len(notifications)}")
+            for n in notifications:
+                print(f"Found notification: {n.id} {n.notification_type}")
+            assert False, "notification count mismatch"
+            
+        n = notifications[0]
+        assert n.notification_type == NotificationType.NEW_REVIEW, f"type mismatch: {n.notification_type}"
+        assert n.entity_type == "review"
+        assert n.entity_id == review.id
+        assert n.is_read is False
+
         ok(label)
-    except Exception as exc:
-        fail(label, f"review creation failed despite hook error: {exc}")
     finally:
-        svc_module._notify_provider_new_review = original_hook
+        svc_module.get_provider = orig_get
+        svc_module.notify = orig_notify
+
+
+async def test_public_display_name_unit_cases(db: AsyncSession):
+    label = "public_display_name unit cases: None, '', '   ', 'Ali', 'Ali Khan', '  maria   de la cruz ', 'A B' -> 'A B.'"
+    cases = [
+        (None, "Customer"),
+        ("", "Customer"),
+        ("   ", "Customer"),
+        ("Ali", "Ali"),
+        ("Ali Khan", "Ali K."),
+        ("  maria   de la cruz ", "maria C."),
+        ("A B", "A B."),
+    ]
+    for inp, expected in cases:
+        actual = svc.public_display_name(inp)
+        assert actual == expected, f"for {inp!r}: expected {expected!r}, got {actual!r}"
+    ok(label)
+
+
+async def test_joined_user_service_names_lists(db: AsyncSession):
+    label = "public provider list returns 'Ali K.' and service_name; admin list returns 'Ali Khan'; /me returns service_name and reviewer_name None"
+    cat_id = uuid.uuid4()
+    cat = Category(
+        id=cat_id,
+        name="Plumbing Services",
+        slug=f"plumbing-{cat_id.hex[:6]}",
+    )
+    db.add(cat)
+
+    prov_user_id = uuid.uuid4()
+    prov_user = User(
+        id=prov_user_id,
+        full_name="Provider Owner",
+        email=f"owner_{prov_user_id.hex[:6]}@example.com",
+        password_hash="pw",
+        role="PROVIDER",
+    )
+    db.add(prov_user)
+
+    prov_id = uuid.uuid4()
+    prov = Provider(
+        id=prov_id,
+        user_id=prov_user_id,
+        business_name="Super Plumbers",
+        location="123 Pipe St",
+        timezone="UTC",
+        slot_interval_minutes=30,
+    )
+    db.add(prov)
+
+    srv_id = uuid.uuid4()
+    srv = Service(
+        id=srv_id,
+        provider_id=prov_id,
+        category_id=cat_id,
+        name="Pipe Repair",
+        price=Decimal("80.00"),
+        duration_minutes=45,
+        service_type=ServiceType.ON_SITE,
+    )
+    db.add(srv)
+
+    cust_user_id = uuid.uuid4()
+    cust_user = User(
+        id=cust_user_id,
+        full_name="Ali Khan",
+        email=f"ali_{cust_user_id.hex[:6]}@example.com",
+        password_hash="pw",
+        role="CUSTOMER",
+    )
+    db.add(cust_user)
+    await db.commit()
+
+    rev_id = uuid.uuid4()
+    booking_id = uuid.uuid4()
+    rev = Review(
+        id=rev_id,
+        booking_id=booking_id,
+        user_id=cust_user_id,
+        provider_id=prov_id,
+        service_id=srv_id,
+        rating=5,
+        comment="Fixed the leak fast!",
+        is_visible=True,
+    )
+    db.add(rev)
+    await db.commit()
+
+    # (a) Public provider list: reviewer_name = "Ali K.", service_name = "Pipe Repair"
+    pub_items, pub_total = await svc.list_provider_reviews(db, prov_id)
+    target_pub = next((r for r in pub_items if r.id == rev_id), None)
+    assert target_pub is not None, "review should be in public provider list"
+    assert target_pub.reviewer_name == "Ali K.", f"expected 'Ali K.', got {target_pub.reviewer_name!r}"
+    assert target_pub.service_name == "Pipe Repair", f"expected 'Pipe Repair', got {target_pub.service_name!r}"
+    pub_resp = ReviewResponse.model_validate(target_pub)
+    assert pub_resp.reviewer_name == "Ali K."
+    assert pub_resp.service_name == "Pipe Repair"
+    pub_ser = ctrl._serialise(target_pub)
+    assert pub_ser["reviewer_name"] == "Ali K."
+    assert pub_ser["service_name"] == "Pipe Repair"
+
+    # (b) Admin list: reviewer_name = "Ali Khan", service_name = "Pipe Repair"
+    admin_items, admin_total = await svc.list_admin_reviews(db, provider_id=prov_id)
+    target_admin = next((r for r in admin_items if r.id == rev_id), None)
+    assert target_admin is not None, "review should be in admin list"
+    assert target_admin.reviewer_name == "Ali Khan", f"expected 'Ali Khan', got {target_admin.reviewer_name!r}"
+    assert target_admin.service_name == "Pipe Repair", f"expected 'Pipe Repair', got {target_admin.service_name!r}"
+    admin_resp = ReviewResponse.model_validate(target_admin)
+    assert admin_resp.reviewer_name == "Ali Khan"
+    assert admin_resp.service_name == "Pipe Repair"
+    admin_ser = ctrl._serialise(target_admin)
+    assert admin_ser["reviewer_name"] == "Ali Khan"
+    assert admin_ser["service_name"] == "Pipe Repair"
+
+    # (c) /me (list_my_reviews): reviewer_name is None, service_name = "Pipe Repair"
+    my_items, my_total = await svc.list_my_reviews(db, cust_user_id)
+    target_my = next((r for r in my_items if r.id == rev_id), None)
+    assert target_my is not None, "review should be in my reviews list"
+    assert target_my.reviewer_name is None, f"expected None, got {target_my.reviewer_name!r}"
+    assert target_my.service_name == "Pipe Repair", f"expected 'Pipe Repair', got {target_my.service_name!r}"
+    my_resp = ReviewResponse.model_validate(target_my)
+    assert my_resp.reviewer_name is None
+    assert my_resp.service_name == "Pipe Repair"
+    my_ser = ctrl._serialise(target_my)
+    assert my_ser["reviewer_name"] is None
+    assert my_ser["service_name"] == "Pipe Repair"
+
+    ok(label)
+
+
+async def test_missing_user_row_returns_customer(db: AsyncSession):
+    label = "review whose user row does not exist returns 'Customer'"
+    prov_user_id = uuid.uuid4()
+    prov_user = User(
+        id=prov_user_id,
+        full_name="Host Owner",
+        email=f"host_{prov_user_id.hex[:6]}@example.com",
+        password_hash="pw",
+        role="PROVIDER",
+    )
+    db.add(prov_user)
+
+    prov_id = uuid.uuid4()
+    prov = Provider(
+        id=prov_id,
+        user_id=prov_user_id,
+        business_name="Ghost Cleaners",
+        location="404 Road",
+        timezone="UTC",
+        slot_interval_minutes=30,
+    )
+    db.add(prov)
+
+    srv_id = uuid.uuid4()
+    srv = Service(
+        id=srv_id,
+        provider_id=prov_id,
+        category_id=uuid.uuid4(),
+        name="Ghost Cleaning",
+        price=Decimal("50.00"),
+        duration_minutes=30,
+        service_type=ServiceType.ON_SITE,
+    )
+    db.add(srv)
+    await db.commit()
+
+    # User ID that does NOT exist in users table
+    missing_user_id = uuid.uuid4()
+    ghost_rev_id = uuid.uuid4()
+    ghost_rev = Review(
+        id=ghost_rev_id,
+        booking_id=uuid.uuid4(),
+        user_id=missing_user_id,
+        provider_id=prov_id,
+        service_id=srv_id,
+        rating=4,
+        comment="Ghost review",
+        is_visible=True,
+    )
+    db.add(ghost_rev)
+    await db.commit()
+
+    items, total = await svc.list_provider_reviews(db, prov_id)
+    ghost_item = next((r for r in items if r.id == ghost_rev_id), None)
+    assert ghost_item is not None, "ghost review should be returned"
+    assert ghost_item.reviewer_name == "Customer", f"expected 'Customer', got {ghost_item.reviewer_name!r}"
+    assert ghost_item.service_name == "Ghost Cleaning"
+
+    ghost_resp = ReviewResponse.model_validate(ghost_item)
+    assert ghost_resp.reviewer_name == "Customer"
+    assert ghost_resp.service_name == "Ghost Cleaning"
+
+    # Also test helper directly
+    assert svc.public_display_name(None) == "Customer"
+    ok(label)
+
+
+async def test_hidden_reviews_excluded_and_totals_unchanged_by_joins(db: AsyncSession):
+    label = "hidden reviews still excluded and totals unchanged by joins (count with names == count without)"
+    prov_user_id = uuid.uuid4()
+    prov_user = User(
+        id=prov_user_id,
+        full_name="Check Provider",
+        email=f"chk_{prov_user_id.hex[:6]}@example.com",
+        password_hash="pw",
+        role="PROVIDER",
+    )
+    db.add(prov_user)
+
+    prov_id = uuid.uuid4()
+    prov = Provider(
+        id=prov_id,
+        user_id=prov_user_id,
+        business_name="Join Check Service",
+        location="500 Join Ave",
+        timezone="UTC",
+        slot_interval_minutes=30,
+    )
+    db.add(prov)
+
+    srv_id = uuid.uuid4()
+    srv = Service(
+        id=srv_id,
+        provider_id=prov_id,
+        category_id=uuid.uuid4(),
+        name="General Maintenance",
+        price=Decimal("120.00"),
+        duration_minutes=60,
+        service_type=ServiceType.ON_SITE,
+    )
+    db.add(srv)
+
+    user1 = User(
+        id=uuid.uuid4(),
+        full_name="Customer One",
+        email=f"c1_{uuid.uuid4().hex[:6]}@example.com",
+        password_hash="pw",
+        role="CUSTOMER",
+    )
+    user2 = User(
+        id=uuid.uuid4(),
+        full_name="Customer Two",
+        email=f"c2_{uuid.uuid4().hex[:6]}@example.com",
+        password_hash="pw",
+        role="CUSTOMER",
+    )
+    db.add(user1)
+    db.add(user2)
+    await db.commit()
+
+    # Insert 2 visible reviews and 1 hidden review
+    r_vis1 = Review(
+        id=uuid.uuid4(),
+        booking_id=uuid.uuid4(),
+        user_id=user1.id,
+        provider_id=prov_id,
+        service_id=srv_id,
+        rating=5,
+        is_visible=True,
+    )
+    r_vis2 = Review(
+        id=uuid.uuid4(),
+        booking_id=uuid.uuid4(),
+        user_id=user2.id,
+        provider_id=prov_id,
+        service_id=srv_id,
+        rating=4,
+        is_visible=True,
+    )
+    r_hid = Review(
+        id=uuid.uuid4(),
+        booking_id=uuid.uuid4(),
+        user_id=user1.id,
+        provider_id=prov_id,
+        service_id=srv_id,
+        rating=1,
+        is_visible=False,
+    )
+    db.add(r_vis1)
+    db.add(r_vis2)
+    db.add(r_hid)
+    await db.commit()
+
+    # Query public provider list
+    pub_items, pub_total = await svc.list_provider_reviews(db, prov_id)
+    pub_ids = [r.id for r in pub_items]
+    assert r_vis1.id in pub_ids
+    assert r_vis2.id in pub_ids
+    assert r_hid.id not in pub_ids, "hidden review must be excluded from public list"
+
+    # Count without joins from repository
+    count_without_joins = await repo.count_by_provider_visible(db, prov_id)
+    assert count_without_joins == 2
+    assert pub_total == count_without_joins, (
+        f"count with names ({pub_total}) must equal count without ({count_without_joins})"
+    )
+    assert len(pub_items) == pub_total
+    ok(label)
+
+
+async def test_create_and_update_serialize_with_new_fields_none(db: AsyncSession):
+    label = "create and update responses serialize with reviewer_name and service_name None"
+    prov_id = uuid.uuid4()
+    srv_id = uuid.uuid4()
+    cust_id = uuid.uuid4()
+
+    set_eligibility_provider(
+        make_fake_provider(provider_id=prov_id, service_id=srv_id)
+    )
+
+    booking_id = uuid.uuid4()
+    created = await svc.create_review(
+        db, cust_id, ReviewCreate(booking_id=booking_id, rating=5, comment="Initial")
+    )
+    assert getattr(created, "reviewer_name", None) is None
+    assert getattr(created, "service_name", None) is None
+
+    resp_created = ReviewResponse.model_validate(created)
+    assert resp_created.reviewer_name is None
+    assert resp_created.service_name is None
+    ser_created = ctrl._serialise(created)
+    assert ser_created["reviewer_name"] is None
+    assert ser_created["service_name"] is None
+
+    updated = await svc.update_review(
+        db, cust_id, created.id, ReviewUpdate(rating=4, comment="Modified")
+    )
+    assert getattr(updated, "reviewer_name", None) is None
+    assert getattr(updated, "service_name", None) is None
+
+    resp_updated = ReviewResponse.model_validate(updated)
+    assert resp_updated.reviewer_name is None
+    assert resp_updated.service_name is None
+    ser_updated = ctrl._serialise(updated)
+    assert ser_updated["reviewer_name"] is None
+    assert ser_updated["service_name"] is None
+
+    ok(label)
 
 
 # ---------------------------------------------------------------------------
@@ -469,7 +1103,18 @@ TESTS = [
     test_rating_summary_math,
     test_batch_summaries_include_zero_provider,
     test_min_rating_filter,
-    test_notification_hook_failure_does_not_fail_creation,
+    test_notify_hook_called_on_create,
+    test_notify_not_called_on_update_delete,
+    test_notify_not_called_on_provider_error,
+    test_notify_error_swallowed,
+    test_notify_not_called_on_conflict,
+    test_pagination_provider_visible_reviews,
+    test_real_notify_path,
+    test_public_display_name_unit_cases,
+    test_joined_user_service_names_lists,
+    test_missing_user_row_returns_customer,
+    test_hidden_reviews_excluded_and_totals_unchanged_by_joins,
+    test_create_and_update_serialize_with_new_fields_none,
 ]
 
 

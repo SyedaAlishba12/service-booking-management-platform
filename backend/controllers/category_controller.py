@@ -1,4 +1,4 @@
-﻿"""
+"""
 Category controller: maps service results / errors to HTTP responses.
 
 Rules:
@@ -16,7 +16,8 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import services.category_service as svc
-from common.response import error_response, success_response
+from common.response import error_response
+from common.responses import ok
 from schemas.category import CategoryCreate, CategoryResponse, CategoryUpdate
 
 
@@ -41,7 +42,7 @@ def _serialise_list(objs) -> list[dict]:
 
 async def list_active_categories(db: AsyncSession):
     categories = await svc.get_public_categories(db)
-    return success_response(
+    return ok(
         data=_serialise_list(categories),
         message="Categories retrieved successfully",
     )
@@ -55,7 +56,7 @@ async def get_active_category(db: AsyncSession, category_id: uuid.UUID):
             status_code=status.HTTP_404_NOT_FOUND,
             content=error_response(exc.message),
         )
-    return success_response(
+    return ok(
         data=_serialise(category),
         message="Category retrieved successfully",
     )
@@ -68,7 +69,7 @@ async def get_active_category(db: AsyncSession, category_id: uuid.UUID):
 
 async def list_all_categories(db: AsyncSession):
     categories = await svc.get_admin_categories(db)
-    return success_response(
+    return ok(
         data=_serialise_list(categories),
         message="Categories retrieved successfully",
     )
@@ -89,10 +90,10 @@ async def create_category(db: AsyncSession, payload: CategoryCreate):
         )
     return JSONResponse(
         status_code=status.HTTP_201_CREATED,
-        content=success_response(
+        content=ok(
             data=_serialise(category),
             message="Category created successfully",
-        ),
+        ).model_dump(mode="json"),
     )
 
 
@@ -116,7 +117,7 @@ async def update_category(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             content=error_response(exc.message),
         )
-    return success_response(
+    return ok(
         data=_serialise(category),
         message="Category updated successfully",
     )
@@ -130,7 +131,7 @@ async def deactivate_category(db: AsyncSession, category_id: uuid.UUID):
             status_code=status.HTTP_404_NOT_FOUND,
             content=error_response(exc.message),
         )
-    return success_response(
+    return ok(
         data=_serialise(category),
         message="Category deactivated successfully",
     )

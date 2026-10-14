@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { useAuth } from "@/app/providers/AuthProvider";
 
 interface SidebarItem {
   label: string;
@@ -20,14 +21,14 @@ function Icon({
   type,
 }: {
   type:
-    | "dashboard"
-    | "calendar"
-    | "booking"
-    | "service"
-    | "provider"
-    | "review"
-    | "category"
-    | "settings";
+  | "dashboard"
+  | "calendar"
+  | "booking"
+  | "service"
+  | "provider"
+  | "review"
+  | "category"
+  | "settings";
 }) {
   const common = {
     width: 20,
@@ -131,10 +132,14 @@ export default function Sidebar({
   isOpen,
   onClose,
 }: SidebarProps) {
+  const { user, loading } = useAuth();
+
   const workspaceLabels = [
     "Dashboard",
     "Calendar",
     "Bookings",
+    "Earnings",
+    "Customers",
     "Services",
     "Providers",
   ];
@@ -160,20 +165,37 @@ export default function Sidebar({
         href={item.href}
         onClick={onClose}
         aria-current={active ? "page" : undefined}
-        className={`flex h-11 items-center gap-3 rounded-xl px-4 text-base font-medium transition-colors ${
-          active
+        className={`flex h-11 items-center gap-3 rounded-xl px-4 text-base font-medium transition-colors ${active
             ? "bg-sidebar text-white shadow-sm"
             : "text-foreground/75 hover:bg-brand-soft hover:text-brand"
-        }`}
+          }`}
       >
         <span className="flex h-5 w-5 shrink-0 items-center justify-center">
-          {item.icon ?? <Icon type={iconMap[item.label] ?? "dashboard"} />}
+          {item.icon ?? (
+            <Icon type={iconMap[item.label] ?? "dashboard"} />
+          )}
         </span>
 
         <span>{item.label}</span>
       </Link>
     );
   };
+
+  const displayName = user?.full_name ?? "User";
+  const displayRole = user?.role ?? "Customer";
+
+  const userInitial = user?.full_name
+    ? user.full_name.charAt(0).toUpperCase()
+    : "U";
+
+  // Profile image URL formatting with backend base URL fallback
+  const profileImageUrl = user?.profile_image_url
+    ? user.profile_image_url.startsWith("http")
+      ? user.profile_image_url
+      : `${(
+          process.env.NEXT_PUBLIC_API_URL ?? ""
+        ).replace(/\/$/, "")}${user.profile_image_url}`
+    : null;
 
   return (
     <>
@@ -186,11 +208,10 @@ export default function Sidebar({
         />
       )}
 
-      {/* Floating panel: 16px gap from the screen edges, rounded, white */}
+      {/* Floating panel */}
       <aside
-        className={`fixed bottom-4 left-4 top-4 z-50 flex w-[232px] flex-col rounded-3xl bg-white shadow-[0_8px_30px_rgba(8,45,110,0.10)] transition-transform duration-200 lg:translate-x-0 ${
-          isOpen ? "translate-x-0" : "-translate-x-[120%]"
-        }`}
+        className={`fixed bottom-4 left-4 top-4 z-50 flex w-[232px] flex-col rounded-3xl bg-white shadow-[0_8px_30px_rgba(8,45,110,0.10)] transition-transform duration-200 lg:translate-x-0 ${isOpen ? "translate-x-0" : "-translate-x-[120%]"
+          }`}
       >
         {/* Brand */}
         <div className="px-5 pb-3 pt-6">
@@ -212,7 +233,9 @@ export default function Sidebar({
               Workspace
             </p>
 
-            <div className="space-y-1">{workspaceItems.map(renderItem)}</div>
+            <div className="space-y-1">
+              {workspaceItems.map(renderItem)}
+            </div>
           </div>
 
           {manageItems.length > 0 && (
@@ -221,7 +244,9 @@ export default function Sidebar({
                 Manage
               </p>
 
-              <div className="space-y-1">{manageItems.map(renderItem)}</div>
+              <div className="space-y-1">
+                {manageItems.map(renderItem)}
+              </div>
             </div>
           )}
         </nav>
@@ -231,16 +256,26 @@ export default function Sidebar({
           {settingsItem && renderItem(settingsItem)}
 
           <div className="mt-2 flex items-center gap-3 rounded-xl px-4 py-2.5">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sidebar text-base font-semibold text-white">
-              A
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-sidebar text-base font-semibold text-white">
+              {profileImageUrl ? (
+                <img
+                  src={profileImageUrl}
+                  alt={displayName}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                userInitial
+              )}
             </div>
 
             <div className="min-w-0">
               <p className="truncate text-base font-semibold leading-5 text-foreground">
-                Ali
+                {loading ? "Loading..." : displayName}
               </p>
 
-              <p className="truncate text-sm text-muted">Customer</p>
+              <p className="truncate text-sm text-muted">
+                {loading ? "" : displayRole}
+              </p>
             </div>
           </div>
         </div>

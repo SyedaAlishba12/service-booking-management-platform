@@ -44,28 +44,47 @@ class Service(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
+
     provider_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("providers.id"), nullable=False
+        UUID(as_uuid=True),
+        ForeignKey("providers.id", ondelete="RESTRICT"),
+        nullable=False,
     )
+
     category_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("categories.id", ondelete="RESTRICT"),
         nullable=False,
     )
+
     name: Mapped[str] = mapped_column(String(150), nullable=False)
+
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
-    duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    price: Mapped[Decimal] = mapped_column(
+        Numeric(10, 2), nullable=False
+    )
+
+    duration_minutes: Mapped[int] = mapped_column(
+        Integer, nullable=False
+    )
+
     service_type: Mapped[ServiceType] = mapped_column(
         Enum(ServiceType, name="service_type"), nullable=False
     )
-    location: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    location: Mapped[str | None] = mapped_column(
+        String(255), nullable=True
+    )
+
     is_active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default="true"
     )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -73,4 +92,7 @@ class Service(Base):
         onupdate=func.now(),
     )
 
-    provider: Mapped["Provider"] = relationship("Provider", back_populates="services")
+    provider: Mapped["Provider"] = relationship(
+        "Provider",
+        back_populates="services",
+    )

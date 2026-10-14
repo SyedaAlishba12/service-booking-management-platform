@@ -113,8 +113,8 @@ export default function DashboardHeader({
               <SearchIcon />
             </button>
 
-            <button
-              type="button"
+            <Link
+              href="/notifications"
               aria-label="Notifications"
               className={roundBtn}
             >
@@ -126,7 +126,7 @@ export default function DashboardHeader({
                   className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-danger ring-2 ring-white"
                 />
               )}
-            </button>
+            </Link>
 
             <UserMenu
               userName={userName}

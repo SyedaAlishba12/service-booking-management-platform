@@ -12,11 +12,8 @@ admin_router            prefix=/api/admin/reviews     (admin-guarded)
 
 Auth note
 ---------
-get_current_user_id: NOT SECURE, DEV ONLY.
-TODO: Replace with Zainab's authenticated-user dependency before any deployment.
-
-require_admin: NOT SECURE, DEV ONLY.
-TODO: Replace with Zainab's role-based dependency before any deployment.
+get_current_user_id: derives user_id from the authenticated JWT token.
+require_admin: requires a valid JWT and the ADMIN role (middleware/admin_guard.py).
 """
 
 import uuid
@@ -26,16 +23,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import controllers.review_controller as ctrl
 from database.session import get_db
-from middleware.auth_stub import get_current_user_id, require_admin
+from middleware.admin_guard import get_current_user_id, require_admin
 from schemas.review import (
     ReviewCreate,
-    ReviewDetailResponse,
-    ReviewListResponse,
+    ReviewResponse,
     ReviewUpdate,
     ReviewVisibilityUpdate,
     RatingSummaryResponse,
 )
-from common.response import success_response
+from common.responses import ApiResponse, PaginatedData
 
 
 # ---------------------------------------------------------------------------
@@ -56,17 +52,17 @@ async def create_review(
 
 # IMPORTANT: /me MUST be declared BEFORE /{id} to avoid FastAPI matching
 # the literal "me" as a UUID path parameter.
-@reviews_router.get("/me", response_model=ReviewListResponse)
+@reviews_router.get("/me", response_model=ApiResponse[PaginatedData[ReviewResponse]])
 async def list_my_reviews(
     db: AsyncSession = Depends(get_db),
     user_id: uuid.UUID = Depends(get_current_user_id),
-    limit: int = Query(default=20, ge=1, le=100),
-    offset: int = Query(default=0, ge=0),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(12, ge=1, le=100),
 ):
-    return await ctrl.list_my_reviews(db, user_id, limit, offset)
+    return await ctrl.list_my_reviews(db, user_id, page, page_size)
 
 
-@reviews_router.put("/{id}", response_model=ReviewDetailResponse)
+@reviews_router.put("/{id}", response_model=ApiResponse[ReviewResponse])
 async def update_review(
     id: uuid.UUID,
     payload: ReviewUpdate,
@@ -93,18 +89,18 @@ provider_reviews_router = APIRouter(prefix="/api/providers", tags=["provider-rev
 
 
 @provider_reviews_router.get(
-    "/{provider_id}/reviews", response_model=ReviewListResponse
+    "/{provider_id}/reviews", response_model=ApiResponse[PaginatedData[ReviewResponse]]
 )
 async def list_provider_reviews(
     provider_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    limit: int = Query(default=20, ge=1, le=100),
-    offset: int = Query(default=0, ge=0),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(12, ge=1, le=100),
 ):
-    return await ctrl.list_provider_reviews(db, provider_id, limit, offset)
+    return await ctrl.list_provider_reviews(db, provider_id, page, page_size)
 
 
-@provider_reviews_router.get("/{provider_id}/rating")
+@provider_reviews_router.get("/{provider_id}/rating", response_model=ApiResponse[RatingSummaryResponse])
 async def get_provider_rating(
     provider_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
@@ -114,7 +110,7 @@ async def get_provider_rating(
 
 # ---------------------------------------------------------------------------
 # Admin router  —  /api/admin/reviews
-# Entire router is guarded by the require_admin dependency (stub for now).
+# Entire router is guarded by the require_admin dependency.
 # ---------------------------------------------------------------------------
 
 admin_router = APIRouter(
@@ -124,21 +120,21 @@ admin_router = APIRouter(
 )
 
 
-@admin_router.get("", response_model=ReviewListResponse)
+@admin_router.get("", response_model=ApiResponse[PaginatedData[ReviewResponse]])
 async def list_admin_reviews(
     db: AsyncSession = Depends(get_db),
     provider_id: uuid.UUID | None = Query(default=None),
     rating: int | None = Query(default=None, ge=1, le=5),
     is_visible: bool | None = Query(default=None),
-    limit: int = Query(default=20, ge=1, le=100),
-    offset: int = Query(default=0, ge=0),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(12, ge=1, le=100),
 ):
     return await ctrl.list_admin_reviews(
-        db, provider_id, rating, is_visible, limit, offset
+        db, provider_id, rating, is_visible, page, page_size
     )
 
 
-@admin_router.put("/{id}/visibility", response_model=ReviewDetailResponse)
+@admin_router.put("/{id}/visibility", response_model=ApiResponse[ReviewResponse])
 async def set_review_visibility(
     id: uuid.UUID,
     payload: ReviewVisibilityUpdate,

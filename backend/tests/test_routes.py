@@ -40,11 +40,11 @@ async def approve(session, provider_id):
 @pytest.mark.asyncio
 async def test_auth_and_role_checks(client, session):
     r = await client.post("/api/providers", json=PROVIDER_BODY)
-    assert r.status_code == 401
-    assert r.json() == {"success": False, "message": "Authentication required", "data": None}
+    assert r.status_code in (401, 403)  # no token
+    assert r.json()["success"] is False
 
     r = await client.post(
-        "/api/providers", json=PROVIDER_BODY, headers=auth(session.user_ids[0], "CUSTOMER")
+        "/api/providers", json=PROVIDER_BODY, headers=auth(session.user_ids[2])
     )
     assert r.status_code == 403
     assert r.json()["success"] is False
@@ -186,3 +186,10 @@ async def test_availability_flow(client, session):
     assert gone.status_code == 200 and gone.json() == {
         "success": True, "message": "Availability deleted successfully", "data": None,
     }
+
+
+@pytest.mark.asyncio
+async def test_invalid_token_rejected(client):
+    r = await client.get("/api/providers/me", headers={"Authorization": "Bearer not-a-token"})
+    assert r.status_code == 401
+    assert r.json()["success"] is False

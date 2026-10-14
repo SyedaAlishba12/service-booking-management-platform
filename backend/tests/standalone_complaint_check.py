@@ -130,16 +130,16 @@ async def test_reading_someone_else_forbidden(db: AsyncSession):
 
 async def test_my_list_returns_only_mine(db: AsyncSession):
     label = "my list returns only mine"
-    my_list = await svc.list_my_complaints(db, USER_2)
+    my_list, total = await svc.list_my_complaints(db, USER_2, 1, 20)
     assert len(my_list) == 1
     assert my_list[0].subject == "My Issue"
     ok(label)
 
 async def test_admin_list_filters(db: AsyncSession):
     label = "admin list filters by status and by type"
-    lst = await svc.list_admin_complaints(db, status=ComplaintStatus.OPEN, complaint_type=ComplaintType.PLATFORM)
+    lst, total1 = await svc.list_admin_complaints(db, status=ComplaintStatus.OPEN, complaint_type=ComplaintType.PLATFORM)
     assert len(lst) >= 2 
-    lst_empty = await svc.list_admin_complaints(db, status=ComplaintStatus.RESOLVED)
+    lst_empty, total2 = await svc.list_admin_complaints(db, status=ComplaintStatus.RESOLVED)
     assert len(lst_empty) == 0
     ok(label)
 
@@ -157,7 +157,7 @@ async def test_open_to_in_review(db: AsyncSession):
 async def test_in_review_to_resolved(db: AsyncSession):
     label = "IN_REVIEW->RESOLVED requires admin_response (schema) and sets resolved_at and resolved_by"
     # Find the one in IN_REVIEW
-    lst = await svc.list_admin_complaints(db, status=ComplaintStatus.IN_REVIEW)
+    lst, total = await svc.list_admin_complaints(db, status=ComplaintStatus.IN_REVIEW)
     comp = lst[0]
     
     try:
@@ -175,7 +175,7 @@ async def test_in_review_to_resolved(db: AsyncSession):
 
 async def test_resolved_to_in_review_rejected(db: AsyncSession):
     label = "RESOLVED->IN_REVIEW rejected"
-    lst = await svc.list_admin_complaints(db, status=ComplaintStatus.RESOLVED)
+    lst, total = await svc.list_admin_complaints(db, status=ComplaintStatus.RESOLVED)
     comp = lst[0]
     upd = ComplaintAdminUpdate(status=ComplaintStatus.IN_REVIEW, admin_response="Wait")
     try:
@@ -257,6 +257,39 @@ async def test_update_status_omits_admin_response_keeps_existing(db: AsyncSessio
     assert updated3.admin_response is None
     ok(label)
 
+async def test_pagination_admin_complaints(db: AsyncSession):
+    label = "pagination: admin list slices correctly and returns total"
+    from sqlalchemy import delete
+    await db.execute(delete(Complaint))
+    await db.commit()
+
+    for i in range(5):
+        c = ComplaintCreate(complaint_type=ComplaintType.PLATFORM, subject=f"p{i}", description="x")
+        await svc.create_complaint(db, USER_1, c)
+
+    # page 1, size 2
+    p1, total = await svc.list_admin_complaints(db, page=1, page_size=2)
+    assert len(p1) == 2
+    assert total == 5
+
+    # page 2, size 2
+    p2, total2 = await svc.list_admin_complaints(db, page=2, page_size=2)
+    assert len(p2) == 2
+    assert total2 == 5
+    assert {c.id for c in p1}.isdisjoint({c.id for c in p2})
+
+    # page 3, size 2
+    p3, total3 = await svc.list_admin_complaints(db, page=3, page_size=2)
+    assert len(p3) == 1
+    assert total3 == 5
+
+    # page 4, size 2
+    p4, total4 = await svc.list_admin_complaints(db, page=4, page_size=2)
+    assert len(p4) == 0
+    assert total4 == 5
+    ok(label)
+
+
 TESTS = [
     test_create_success_status_open,
     test_schema_rejects_booking_without_id,
@@ -274,7 +307,8 @@ TESTS = [
     test_open_to_resolved,
     test_counts_by_status,
     test_db_check_constraint,
-    test_update_status_omits_admin_response_keeps_existing
+    test_update_status_omits_admin_response_keeps_existing,
+    test_pagination_admin_complaints
 ]
 
 async def main():

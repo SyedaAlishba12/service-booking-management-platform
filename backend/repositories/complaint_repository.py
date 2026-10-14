@@ -58,6 +58,31 @@ async def list_admin(
     return list(result.scalars().all())
 
 
+async def count_by_user(db: AsyncSession, user_id: uuid.UUID) -> int:
+    result = await db.execute(
+        select(func.count(Complaint.id)).where(Complaint.user_id == user_id)
+    )
+    return result.scalar_one()
+
+
+async def count_admin(
+    db: AsyncSession,
+    status: ComplaintStatus | None = None,
+    complaint_type: ComplaintType | None = None,
+    provider_id: uuid.UUID | None = None,
+) -> int:
+    stmt = select(func.count(Complaint.id))
+    if status is not None:
+        stmt = stmt.where(Complaint.status == status)
+    if complaint_type is not None:
+        stmt = stmt.where(Complaint.complaint_type == complaint_type)
+    if provider_id is not None:
+        stmt = stmt.where(Complaint.provider_id == provider_id)
+    result = await db.execute(stmt)
+    return result.scalar_one()
+
+
+
 async def apply_updates(
     db: AsyncSession, complaint: Complaint, updates: dict[str, Any]
 ) -> Complaint:

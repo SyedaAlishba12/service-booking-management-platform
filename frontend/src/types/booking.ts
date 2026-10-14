@@ -1,4 +1,9 @@
-export type BookingStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "NO_SHOW";
+export type BookingStatus =
+  | "PENDING"
+  | "CONFIRMED"
+  | "CANCELLED"
+  | "COMPLETED"
+  | "NO_SHOW";
 
 export interface Booking {
   id: string;
@@ -7,6 +12,7 @@ export interface Booking {
   service_id: string;
   start_at: string;
   end_at: string;
+  created_at: string;
   status: BookingStatus;
   price: string | number;
   notes?: string | null;
@@ -16,7 +22,6 @@ export interface Booking {
   customer_name?: string | null;
   provider_timezone?: string | null;
   payment_status?: "PENDING" | "PAID" | "FAILED" | "REFUNDED" | null;
-  created_at: string;
 }
 
 export interface PublicProvider {
@@ -51,7 +56,12 @@ export interface Slot {
 
 export interface Page<T> {
   items: T[];
-  meta: { page: number; page_size: number; total: number; total_pages: number };
+  meta: {
+    page: number;
+    page_size: number;
+    total: number;
+    total_pages: number;
+  };
 }
 
 export interface Payment {

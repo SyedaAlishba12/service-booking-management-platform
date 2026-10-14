@@ -15,6 +15,8 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.review import Review
+from models.service import Service
+from models.user import User
 
 
 # ---------------------------------------------------------------------------
@@ -85,10 +87,14 @@ async def list_by_provider_visible(
     provider_id: uuid.UUID,
     limit: int = 20,
     offset: int = 0,
-) -> list[Review]:
+) -> list[tuple[Review, str | None, str | None]]:
     """Return visible reviews for a provider, newest first."""
-    result = await db.execute(
-        select(Review)
+    # Read-only outer joins on User and Service tables (owned by other modules)
+    # so a missing or deleted user or service never drops a review.
+    stmt = (
+        select(Review, User.full_name, Service.name)
+        .outerjoin(User, Review.user_id == User.id)
+        .outerjoin(Service, Review.service_id == Service.id)
         .where(
             and_(
                 Review.provider_id == provider_id,
@@ -99,7 +105,8 @@ async def list_by_provider_visible(
         .limit(limit)
         .offset(offset)
     )
-    return list(result.scalars().all())
+    result = await db.execute(stmt)
+    return list(result.tuples().all())
 
 
 async def list_by_user(
@@ -107,16 +114,21 @@ async def list_by_user(
     user_id: uuid.UUID,
     limit: int = 20,
     offset: int = 0,
-) -> list[Review]:
+) -> list[tuple[Review, str | None, str | None]]:
     """Return all reviews written by a user, newest first."""
-    result = await db.execute(
-        select(Review)
+    # Read-only outer joins on User and Service tables (owned by other modules)
+    # so a missing or deleted user or service never drops a review.
+    stmt = (
+        select(Review, User.full_name, Service.name)
+        .outerjoin(User, Review.user_id == User.id)
+        .outerjoin(Service, Review.service_id == Service.id)
         .where(Review.user_id == user_id)
         .order_by(Review.created_at.desc())
         .limit(limit)
         .offset(offset)
     )
-    return list(result.scalars().all())
+    result = await db.execute(stmt)
+    return list(result.tuples().all())
 
 
 async def list_admin(
@@ -126,9 +138,15 @@ async def list_admin(
     is_visible: bool | None = None,
     limit: int = 20,
     offset: int = 0,
-) -> list[Review]:
+) -> list[tuple[Review, str | None, str | None]]:
     """Return reviews with optional filters (admin endpoint), newest first."""
-    stmt = select(Review)
+    # Read-only outer joins on User and Service tables (owned by other modules)
+    # so a missing or deleted user or service never drops a review.
+    stmt = (
+        select(Review, User.full_name, Service.name)
+        .outerjoin(User, Review.user_id == User.id)
+        .outerjoin(Service, Review.service_id == Service.id)
+    )
     if provider_id is not None:
         stmt = stmt.where(Review.provider_id == provider_id)
     if rating is not None:
@@ -137,7 +155,50 @@ async def list_admin(
         stmt = stmt.where(Review.is_visible.is_(is_visible))
     stmt = stmt.order_by(Review.created_at.desc()).limit(limit).offset(offset)
     result = await db.execute(stmt)
-    return list(result.scalars().all())
+    return list(result.tuples().all())
+
+
+async def count_by_provider_visible(
+    db: AsyncSession,
+    provider_id: uuid.UUID,
+) -> int:
+    result = await db.execute(
+        select(func.count(Review.id))
+        .where(
+            and_(
+                Review.provider_id == provider_id,
+                Review.is_visible.is_(True),
+            )
+        )
+    )
+    return result.scalar_one()
+
+
+async def count_by_user(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+) -> int:
+    result = await db.execute(
+        select(func.count(Review.id)).where(Review.user_id == user_id)
+    )
+    return result.scalar_one()
+
+
+async def count_admin(
+    db: AsyncSession,
+    provider_id: uuid.UUID | None = None,
+    rating: int | None = None,
+    is_visible: bool | None = None,
+) -> int:
+    stmt = select(func.count(Review.id))
+    if provider_id is not None:
+        stmt = stmt.where(Review.provider_id == provider_id)
+    if rating is not None:
+        stmt = stmt.where(Review.rating == rating)
+    if is_visible is not None:
+        stmt = stmt.where(Review.is_visible.is_(is_visible))
+    result = await db.execute(stmt)
+    return result.scalar_one()
 
 
 # ---------------------------------------------------------------------------
