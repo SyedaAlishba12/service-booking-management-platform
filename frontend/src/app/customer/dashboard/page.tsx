@@ -1,306 +1,530 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useState } from "react";
-import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import DashboardHeader from "@/components/layout/DashboardHeader";
-import Sidebar from "@/components/layout/Sidebar";
-import { useAuth } from "@/app/providers/AuthProvider";
-import { apiClient } from "@/utils/api_client";
-import LoadingState from "@/components/ui/LoadingState";
-import Alert from "@/components/ui/Alert";
-import { Card } from "@/components/ui/Card";
+import { useState } from "react";
+
+import DashboardLayout from "@/components/layout/DashboardLayout";
 import Button from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
 
-const customerSidebarItems = [
-  { label: "Dashboard", href: "/customer/dashboard" },
-  { label: "Bookings", href: "/bookings" },
-  { label: "Calendar", href: "/calendar" },
-  { label: "Services", href: "/services" },
-  { label: "Providers", href: "/providers" },
-  { label: "Reviews", href: "/reviews" },
-  { label: "Settings", href: "/profile" },
-];
+import DashboardWelcome from "@/components/dashboard/DashboardWelcome";
+import DashboardHero from "@/components/dashboard/DashboardHero";
+import DashboardStats from "@/components/dashboard/DashboardStats";
+import QuickActions from "@/components/dashboard/QuickActions";
+import RecentActivity from "@/components/dashboard/RecentActivity";
+import UpcomingSchedule from "@/components/dashboard/UpcomingSchedule";
+import LoadingState from "@/components/ui/LoadingState";
+import ErrorState from "@/components/ui/ErrorState";
 
-function CustomerDashboardContent() {
-  const { user } = useAuth();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  
-  const [bookings, setBookings] = useState<any[]>([]);
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+import { useCustomerProfile, useCustomerDashboardExtras } from "@/hooks/useCustomerDashboard";
+import { getApiErrorMessage } from "@/utils/api_error_handler";
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        setLoading(true);
-        setError("");
+import type {
+  DashboardActivity,
+  DashboardAppointment,
+  DashboardStat,
+  QuickAction,
+} from "@/types/dashboard";
 
-        // Consuming Sayeel's Booking APIs and Zainab's Notification APIs[cite: 7]
-        const [bookingsRes, notificationsRes] = await Promise.all([
-          apiClient.get<any[]>("/api/bookings").catch(() => []),
-          apiClient.get<any[]>("/api/notifications/unread").catch(() => []),
-        ]);
+const days = ["M", "T", "W", "T", "F", "S", "S"];
 
-        setBookings(bookingsRes ?? []);
-        setNotifications(notificationsRes ?? []);
-      } catch (err) {
-        setError("Unable to load dashboard data. Please try again later.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    void fetchDashboardData();
-  }, []);
-
-  const upcomingBookings = bookings.filter(
-    (b) => b.status === "PENDING" || b.status === "CONFIRMED"
+function DotsIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={className}
+      aria-hidden="true"
+    >
+      <circle cx="5" cy="12" r="1.8" />
+      <circle cx="12" cy="12" r="1.8" />
+      <circle cx="19" cy="12" r="1.8" />
+    </svg>
   );
+}
 
-  const completedBookings = bookings.filter(
-    (b) => b.status === "COMPLETED"
+function CheckIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m5 12 5 5 9-10" />
+    </svg>
   );
+}
 
-  const unreadNotificationCount = notifications.length;
+function ArrowIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M7 17 17 7M9 7h8v8" />
+    </svg>
+  );
+}
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-surface-blue">
-        <Sidebar
-          items={customerSidebarItems}
-          activeHref="/customer/dashboard"
-          isOpen={sidebarOpen}
-          onClose={() => setSidebarOpen(false)}
-        />
-        <div className="lg:pl-[232px] flex min-h-screen items-center justify-center">
-          <LoadingState message="Loading your dashboard..." minHeight="lg" />
-        </div>
-      </div>
-    );
-  }
+function Ring({
+  r,
+  pct,
+  color,
+}: {
+  r: number;
+  pct: number;
+  color: string;
+}) {
+  const circumference = 2 * Math.PI * r;
 
   return (
-    <div className="min-h-screen bg-surface-blue">
-      <Sidebar
-        items={customerSidebarItems}
-        activeHref="/customer/dashboard"
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
+    <>
+      <circle
+        cx="50"
+        cy="50"
+        r={r}
+        fill="none"
+        stroke="var(--brand-soft)"
+        strokeWidth="7"
       />
 
-      <div className="lg:pl-[232px]">
-        <DashboardHeader
-          userName={user?.full_name}
-          userEmail={user?.email}
-          notificationCount={unreadNotificationCount}
-          onMenuClick={() => setSidebarOpen(true)}
+      <circle
+        cx="50"
+        cy="50"
+        r={r}
+        fill="none"
+        stroke={color}
+        strokeWidth="7"
+        strokeLinecap="round"
+        strokeDasharray={circumference}
+        strokeDashoffset={circumference - circumference * pct}
+      />
+    </>
+  );
+}
+
+function WeeklyChart() {
+  return (
+    <div className="mt-5">
+      <svg
+        viewBox="0 0 420 130"
+        preserveAspectRatio="none"
+        className="h-[135px] w-full"
+        aria-hidden="true"
+      >
+        <defs>
+          <linearGradient
+            id="weekly-bookings"
+            x1="0"
+            y1="0"
+            x2="0"
+            y2="1"
+          >
+            <stop
+              offset="0"
+              stopColor="var(--brand)"
+              stopOpacity="0.18"
+            />
+            <stop
+              offset="1"
+              stopColor="var(--brand)"
+              stopOpacity="0"
+            />
+          </linearGradient>
+        </defs>
+
+        {[25, 60, 95].map((y) => (
+          <line
+            key={y}
+            x1="0"
+            x2="420"
+            y1={y}
+            y2={y}
+            stroke="var(--line)"
+            strokeDasharray="3 5"
+          />
+        ))}
+
+        <path
+          d="M0 95 L50 42 L90 82 L140 25 L190 78 L240 22 L290 68 L340 18 L380 88 L420 35 L420 130 L0 130Z"
+          fill="url(#weekly-bookings)"
         />
 
-        <main className="px-4 py-6 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-[1380px] space-y-7">
-            {error && <Alert variant="error">{error}</Alert>}
+        <path
+          d="M0 95 C25 78 35 42 50 42 S75 87 90 82 S120 25 140 25 S170 82 190 78 S220 22 240 22 S270 73 290 68 S320 18 340 18 S365 92 380 88 S405 40 420 35"
+          fill="none"
+          stroke="var(--sidebar)"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+        />
 
-            {/* ================= WELCOME SECTION ================= */}
-            <div className="rounded-3xl bg-surface p-6 sm:p-8 shadow-[0_12px_40px_rgba(8,45,110,0.06)]">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                  <h1 className="text-2xl font-bold text-foreground sm:text-3xl">
-                    Welcome back, {user?.full_name ?? "Customer"}!
-                  </h1>
-                  <p className="mt-2 text-sm text-muted">
-                    Here is your appointment summary, recent activity, and quick access to services.
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Link
-                    href="/services"
-                    className="inline-flex items-center justify-center rounded-xl bg-sidebar px-5 py-2.5 text-sm font-semibold text-white shadow hover:bg-sidebar-hover"
-                  >
-                    + Book new service
-                  </Link>
-                </div>
-              </div>
-            </div>
+        <path
+          d="M0 112 C40 103 60 75 100 88 S160 105 200 67 S260 80 300 48 S370 80 420 60"
+          fill="none"
+          stroke="var(--secondary)"
+          strokeOpacity="0.55"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+      </svg>
 
-            {/* ================= STATS / SUMMARY GRID ================= */}
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-              <Card className="p-5">
-                <p className="text-xs font-bold uppercase tracking-wider text-muted">
-                  Upcoming Bookings
-                </p>
-                <p className="mt-2 text-3xl font-bold text-foreground">
-                  {upcomingBookings.length}
-                </p>
-                <p className="mt-1 text-xs text-muted">Scheduled appointments</p>
-              </Card>
-
-              <Card className="p-5">
-                <p className="text-xs font-bold uppercase tracking-wider text-muted">
-                  Completed Bookings
-                </p>
-                <p className="mt-2 text-3xl font-bold text-foreground">
-                  {completedBookings.length}
-                </p>
-                <p className="mt-1 text-xs text-muted">Services received</p>
-              </Card>
-
-              <Card className="p-5">
-                <p className="text-xs font-bold uppercase tracking-wider text-muted">
-                  Total Bookings
-                </p>
-                <p className="mt-2 text-3xl font-bold text-foreground">
-                  {bookings.length}
-                </p>
-                <p className="mt-1 text-xs text-muted">Lifetime appointments</p>
-              </Card>
-
-              <Card className="p-5">
-                <p className="text-xs font-bold uppercase tracking-wider text-muted">
-                  Unread Notifications
-                </p>
-                <p className="mt-2 text-3xl font-bold text-brand">
-                  {unreadNotificationCount}
-                </p>
-                <p className="mt-1 text-xs text-muted">Recent alerts</p>
-              </Card>
-            </div>
-
-            {/* ================= UPCOMING APPOINTMENTS ================= */}
-            <div className="rounded-3xl bg-surface p-6 sm:p-8 shadow-[0_12px_40px_rgba(8,45,110,0.06)]">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-foreground">
-                  Upcoming Appointments
-                </h2>
-                <Link
-                  href="/bookings"
-                  className="text-sm font-semibold text-brand hover:underline"
-                >
-                  View history →
-                </Link>
-              </div>
-
-              {upcomingBookings.length === 0 ? (
-                <div className="py-10 text-center">
-                  <p className="text-sm text-muted">No upcoming appointments found.</p>
-                  <Link
-                    href="/services"
-                    className="mt-3 inline-block rounded-xl bg-brand-soft px-4 py-2 text-xs font-semibold text-brand hover:bg-brand hover:text-white transition-colors"
-                  >
-                    Browse & book services
-                  </Link>
-                </div>
-              ) : (
-                <div className="mt-4 divide-y divide-line">
-                  {upcomingBookings.map((booking) => (
-                    <div key={booking.id} className="py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                      <div>
-                        <p className="font-semibold text-foreground">
-                          {booking.service_name ?? "Service Booking"}
-                        </p>
-                        <p className="text-xs text-muted">
-                          Provider: {booking.provider_name ?? "Professional"} · {booking.date} at {booking.time}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
-                          {booking.status}
-                        </span>
-                        <Link
-                          href={`/bookings/${booking.id}`}
-                          className="rounded-lg border border-line px-3 py-1.5 text-xs font-semibold hover:bg-surface-blue"
-                        >
-                          Manage
-                        </Link>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* ================= QUICK ACTIONS & PROFILE ACCESS ================= */}
-            <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-              <Card className="p-6 lg:col-span-2">
-                <h2 className="text-lg font-bold text-foreground">Quick Actions</h2>
-                <p className="mt-1 text-sm text-muted">Jump straight into common tasks.</p>
-
-                <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <Link
-                    href="/services"
-                    className="flex flex-col rounded-2xl border border-line bg-surface p-4 transition-all hover:border-brand hover:shadow-md"
-                  >
-                    <span className="font-semibold text-foreground">Find a Service</span>
-                    <span className="mt-1 text-xs text-muted">Explore categories & book slots</span>
-                  </Link>
-
-                  <Link
-                    href="/providers"
-                    className="flex flex-col rounded-2xl border border-line bg-surface p-4 transition-all hover:border-brand hover:shadow-md"
-                  >
-                    <span className="font-semibold text-foreground">Browse Providers</span>
-                    <span className="mt-1 text-xs text-muted">View trusted professionals</span>
-                  </Link>
-
-                  <Link
-                    href="/profile"
-                    className="flex flex-col rounded-2xl border border-line bg-surface p-4 transition-all hover:border-brand hover:shadow-md"
-                  >
-                    <span className="font-semibold text-foreground">Account Settings</span>
-                    <span className="mt-1 text-xs text-muted">Update profile & photo</span>
-                  </Link>
-                </div>
-              </Card>
-
-              {/* Profile Summary Card */}
-              <Card className="p-6 flex flex-col justify-between">
-                <div>
-                  <h2 className="text-lg font-bold text-foreground">My Profile</h2>
-                  <div className="mt-4 flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-sidebar text-lg font-bold text-white overflow-hidden">
-                      {user?.profile_image_url ? (
-                        <img
-                          src={
-                            user.profile_image_url.startsWith("http")
-                              ? user.profile_image_url
-                              : `${(process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/$/, "")}${user.profile_image_url}`
-                          }
-                          alt={user.full_name}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        user?.full_name?.charAt(0).toUpperCase() ?? "U"
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-semibold text-foreground">{user?.full_name}</p>
-                      <p className="text-xs text-muted">{user?.email}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-6">
-                  <Link
-                    href="/profile"
-                    className="block w-full text-center rounded-xl bg-brand-soft py-2.5 text-xs font-semibold text-brand hover:bg-brand hover:text-white transition-colors"
-                  >
-                    Edit Profile
-                  </Link>
-                </div>
-              </Card>
-            </div>
-          </div>
-        </main>
+      <div className="mt-2 flex justify-between">
+        {days.map((day, index) => (
+          <span
+            key={`${day}-${index}`}
+            className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${
+              index === 5
+                ? "bg-sidebar text-white"
+                : "text-muted"
+            }`}
+          >
+            {day}
+          </span>
+        ))}
       </div>
     </div>
   );
 }
 
+const initialGoals = [
+  { text: "Complete 25 bookings", done: true },
+  { text: "Leave 5 reviews", done: true },
+  { text: "Try 2 new providers", done: false },
+  { text: "Reschedule less than 3 times", done: false },
+];
+
+const quickActions: QuickAction[] = [
+  {
+    label: "Find a service",
+    description: "Browse services and choose a convenient time",
+    href: "/customer/services",
+    primary: true,
+  },
+  {
+    label: "My bookings",
+    description: "View upcoming and past appointments",
+    href: "/customer/bookings",
+  },
+  {
+    label: "Find providers",
+    description: "Explore trusted service providers",
+    href: "/customer/providers",
+  },
+];
+
 export default function CustomerDashboardPage() {
+  const [goals, setGoals] = useState(initialGoals);
+  const customer = useCustomerProfile();
+  const extras = useCustomerDashboardExtras();
+
+  const completedGoals = goals.filter((goal) => goal.done).length;
+
+  const toggleGoal = (index: number) => {
+    setGoals((current) =>
+      current.map((goal, goalIndex) =>
+        goalIndex === index ? { ...goal, done: !goal.done } : goal
+      )
+    );
+  };
+
+  const sidebarItems = [
+    { label: "Dashboard", href: "/customer/dashboard" },
+    { label: "Calendar", href: "/customer/calendar" },
+    { label: "Bookings", href: "/customer/bookings" },
+    { label: "Services", href: "/customer/services" },
+    { label: "Providers", href: "/customer/providers" },
+    { label: "Reviews", href: "/customer/reviews" },
+    { label: "Settings", href: "/customer/settings" },
+  ];
+
+  if (customer.isLoading || extras.isLoading) {
+    return <LoadingState message="Loading your dashboard..." />;
+  }
+
+  if (customer.isError) {
+    return <ErrorState message={getApiErrorMessage(customer.error)} />;
+  }
+
+  const customerName = customer.data?.user?.full_name || "Customer";
+  const dateLabel = new Date().toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+
+  const dashboardStats: DashboardStat[] = [
+    {
+      label: "Total bookings",
+      value: String(extras.data?.bookings?.completed_count || 0),
+      detail: "All time completed & active",
+      trend: "up",
+    },
+    {
+      label: "Upcoming",
+      value: String(extras.data?.bookings?.upcoming_count || 0),
+      detail: `${extras.data?.bookings?.pending_count || 0} pending confirmation`,
+      trend: "neutral",
+    },
+    {
+      label: "Completed",
+      value: String(extras.data?.bookings?.completed_count || 0),
+      detail: "Successfully finished",
+      trend: "up",
+    },
+    {
+      label: "Notifications",
+      value: String(extras.data?.notifications?.unread_count || 0),
+      detail: "Unread alerts",
+      trend: "neutral",
+    },
+  ];
+
+  const upcomingBookings: DashboardAppointment[] = extras.data?.bookings?.upcoming || [];
+  const nextAppointment = upcomingBookings.length > 0 ? upcomingBookings[0] : null;
+  const dashboardActivity: DashboardActivity[] = extras.data?.activity || [];
+
   return (
-    <ProtectedRoute>
-      <CustomerDashboardContent />
-    </ProtectedRoute>
+    <DashboardLayout
+      sidebarItems={sidebarItems}
+      activeHref="/customer/dashboard"
+      userName={customerName}
+      notificationCount={extras.data?.notifications?.unread_count || 0}
+    >
+      <div className="space-y-7">
+        <DashboardWelcome
+          name={customerName}
+          dateLabel={dateLabel}
+        />
+
+        <DashboardHero
+          appointment={nextAppointment}
+          onReschedule={() => {}}
+        />
+
+        <DashboardStats stats={dashboardStats} />
+
+        <section className="grid gap-5 xl:grid-cols-[1.05fr_1.25fr_0.85fr]">
+          <Card variant="dark" className="p-5">
+            <div className="flex items-center justify-between">
+              <div className="text-lg font-bold">Overall information</div>
+              <DotsIcon className="text-white/80" />
+            </div>
+
+            <div className="mt-5 flex items-end gap-6">
+              <div>
+                <span className="text-4xl font-bold leading-none">
+                  {extras.data?.bookings?.completed_count || 0}
+                </span>
+                <span className="ml-2 text-sm leading-5 text-white/80">
+                  bookings
+                  <br />
+                  completed
+                </span>
+              </div>
+
+              <div className="border-l border-white/25 pl-6">
+                <span className="text-4xl font-bold leading-none">
+                  {extras.data?.bookings?.pending_count || 0}
+                </span>
+                <span className="ml-2 text-sm leading-5 text-white/80">
+                  pending
+                  <br />
+                  bookings
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-white/20">
+              <div className="h-full w-3/4 rounded-full bg-white" />
+            </div>
+
+            <div className="mt-5 grid grid-cols-3 gap-3">
+              {[
+                { n: String(extras.data?.bookings?.upcoming_count || 0), l: "Upcoming" },
+                { n: String(extras.data?.bookings?.completed_count || 0), l: "Completed" },
+                { n: "0", l: "Cancelled" },
+              ].map((item) => (
+                <div
+                  key={item.l}
+                  className="rounded-2xl bg-white px-2.5 py-3 text-center text-foreground"
+                >
+                  <div className="text-xl font-bold leading-none">{item.n}</div>
+                  <div className="mt-1.5 text-xs font-medium text-muted">{item.l}</div>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          <Card variant="glass" className="p-5">
+            <div className="flex items-center justify-between">
+              <div className="text-lg font-bold leading-6 text-foreground">
+                Weekly bookings
+              </div>
+              <span className="rounded-full bg-success-soft px-3 py-1 text-sm font-semibold text-success">
+                Active
+              </span>
+            </div>
+
+            <div className="mt-2 flex gap-5 text-sm text-muted">
+              <span className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-full bg-sidebar" />
+                Confirmed
+              </span>
+              <span className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-full bg-secondary/60" />
+                Pending
+              </span>
+            </div>
+
+            <WeeklyChart />
+          </Card>
+
+          <Card variant="default" className="p-5">
+            <div className="flex items-center justify-between">
+              <div className="text-lg font-bold leading-6 text-foreground">
+                Month progress
+              </div>
+            </div>
+
+            <p className="mt-2 text-sm text-muted">
+              <b className="text-base text-foreground">72%</b> of your monthly target
+            </p>
+
+            <div className="mt-5 flex items-center justify-between gap-4">
+              <div>
+                <div className="text-sm font-bold tracking-wide text-foreground">
+                  OVERVIEW
+                </div>
+
+                <ul className="mt-2 space-y-2 text-sm text-muted">
+                  <li className="flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 rounded-full bg-sidebar" />
+                    Confirmed
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 rounded-full bg-secondary" />
+                    Completed
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 rounded-full bg-line-blue" />
+                    Pending
+                  </li>
+                </ul>
+              </div>
+
+              <div className="relative h-[98px] w-[98px] shrink-0">
+                <svg viewBox="0 0 100 100" className="-rotate-90" aria-hidden="true">
+                  <Ring r={42} pct={0.72} color="var(--sidebar)" />
+                  <Ring r={31} pct={0.55} color="var(--secondary)" />
+                  <Ring r={20} pct={0.3} color="var(--line-blue)" />
+                </svg>
+                <span className="absolute inset-0 flex items-center justify-center text-sm font-bold">
+                  72%
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-5 flex items-center gap-2">
+              <Button
+                variant="primary"
+                size="md"
+                shape="pill"
+                className="h-10 w-10 shrink-0 p-0"
+                aria-label="Share report"
+              >
+                <ArrowIcon />
+              </Button>
+
+              <Button variant="outline" size="md" shape="pill" className="h-10 flex-1">
+                Download report
+              </Button>
+            </div>
+          </Card>
+        </section>
+
+        <UpcomingSchedule
+          bookings={upcomingBookings}
+          viewAllHref="/customer/bookings"
+        />
+
+        <section className="grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">
+          <QuickActions actions={quickActions} />
+
+          <Card variant="glass" className="p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+                  This month
+                </p>
+                <h2 className="mt-1 text-lg font-bold text-foreground">
+                  Personal goals
+                </h2>
+              </div>
+
+              <div className="text-right">
+                <span className="text-xl font-bold text-brand">{completedGoals}</span>
+                <span className="text-sm text-muted">/{goals.length}</span>
+              </div>
+            </div>
+
+            <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-brand-soft">
+              <div
+                className="h-full rounded-full bg-sidebar transition-all duration-300"
+                style={{
+                  width: `${(completedGoals / goals.length) * 100}%`,
+                }}
+              />
+            </div>
+
+            <div className="mt-4 space-y-1">
+              {goals.map((goal, index) => (
+                <button
+                  key={goal.text}
+                  type="button"
+                  onClick={() => toggleGoal(index)}
+                  className="flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left transition-colors hover:bg-white/70 focus-visible:outline-3 focus-visible:outline-secondary"
+                >
+                  <span
+                    className={[
+                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-colors",
+                      goal.done
+                        ? "bg-sidebar text-white"
+                        : "border border-line bg-white text-transparent",
+                    ].join(" ")}
+                  >
+                    <CheckIcon />
+                  </span>
+
+                  <span
+                    className={[
+                      "text-sm",
+                      goal.done ? "font-semibold text-foreground" : "text-muted",
+                    ].join(" ")}
+                  >
+                    {goal.text}
+                  </span>
+                </button>
+              )) }
+            </div>
+          </Card>
+        </section>
+
+        <RecentActivity activity={dashboardActivity} />
+      </div>
+    </DashboardLayout>
   );
 }

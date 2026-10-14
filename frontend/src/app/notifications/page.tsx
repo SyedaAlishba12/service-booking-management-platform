@@ -22,15 +22,16 @@ function NotificationsContent() {
     try {
       setLoading(true);
       setError("");
-      const res = await apiClient.get<any[]>("/api/notifications");
-      setNotifications(res ?? []);
+      const res: any = await apiClient.get("/api/notifications");
+      // Backend ke {"success": true, "data": [...]} format ko extract karne ke liye:
+      const notificationList = res?.data || res || [];
+      setNotifications(Array.isArray(notificationList) ? notificationList : []);
     } catch {
       setError("Unable to load notifications.");
     } finally {
       setLoading(false);
     }
   };
-
   useEffect(() => {
     void fetchAllNotifications();
   }, []);

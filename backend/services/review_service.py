@@ -26,6 +26,8 @@ from services.booking_eligibility import (
     EligibilityUnavailableError,
     get_review_eligibility,
 )
+from services.provider_service import get_provider
+from services.notification_integration import notify
 
 
 # ---------------------------------------------------------------------------
@@ -78,6 +80,7 @@ __all__ = [
     "ReviewForbiddenError",
     "ReviewValidationError",
     "EligibilityUnavailableError",
+    "public_display_name",
     "create_review",
     "update_review",
     "delete_review",
@@ -92,18 +95,51 @@ __all__ = [
 
 
 # ---------------------------------------------------------------------------
-# Notification hook (no-op stub)
+# Helpers
 # ---------------------------------------------------------------------------
 
 
-async def _notify_provider_new_review(review: Review) -> None:  # noqa: RUF029
-    """No-op notification hook called after a review is created.
+def public_display_name(full_name: str | None) -> str:
+    """Format full name for public display.
 
-    TODO: Replace with Zainab's notify() call passing NEW_REVIEW event.
-          This is intentionally a no-op so the notification system can be
-          wired in without changing the review creation logic.
+    Rules:
+      - None, empty, or whitespace-only -> 'Customer'
+      - One word -> that word
+      - Two or more words -> first word + ' ' + first letter of the LAST word uppercased + '.'
+        (e.g., 'Ali Khan' -> 'Ali K.', '  maria   de la cruz ' -> 'maria C.')
+      - Do not title-case the first word.
     """
-    pass
+    if not full_name:
+        return "Customer"
+    words = full_name.split()
+    if not words:
+        return "Customer"
+    if len(words) == 1:
+        return words[0]
+    return f"{words[0]} {words[-1][0].upper()}."
+
+
+# ---------------------------------------------------------------------------
+# Notification hook (no-op stub)
+# ---------------------------------------------------------------------------
+
+async def _notify_provider_new_review(db: AsyncSession, review: Review) -> None:  # noqa: RUF029
+    """Real notification hook called after a review is created."""
+    try:
+        async with db.begin_nested():
+            provider = await get_provider(db, review.provider_id)
+            await notify(
+                db,
+                user_id=provider.user_id,
+                notification_type="NEW_REVIEW",
+                title="New review received",
+                message=f"You received a new {review.rating}-star review.",
+                entity_type="review",
+                entity_id=review.id,
+            )
+        await db.commit()
+    except Exception:
+        pass
 
 
 # ---------------------------------------------------------------------------
@@ -167,10 +203,12 @@ async def create_review(
     # Notification hook: swallow all errors so a notification failure
     # NEVER fails the review creation.
     try:
-        await _notify_provider_new_review(review)
+        await _notify_provider_new_review(db, review)
     except Exception:  # noqa: BLE001
         pass
 
+    review.reviewer_name = None
+    review.service_name = None
     return review
 
 
@@ -203,6 +241,8 @@ async def update_review(
     await repo.apply_updates(db, review, updates)
     await db.commit()
     await db.refresh(review)
+    review.reviewer_name = None
+    review.service_name = None
     return review
 
 
@@ -244,9 +284,20 @@ async def list_provider_reviews(
     page: int = 1,
     page_size: int = 12,
 ) -> tuple[list[Review], int]:
-    """Return visible reviews for a provider (public endpoint)."""
+    """Return visible reviews for a provider (public endpoint).
+
+    Returns a tuple of (items, total). Each item is a Review ORM object
+    annotated with:
+      - reviewer_name: public_display_name(full_name)
+      - service_name: service name from the outer join
+    """
     offset = (page - 1) * page_size
-    items = await repo.list_by_provider_visible(db, provider_id, page_size, offset)
+    rows = await repo.list_by_provider_visible(db, provider_id, page_size, offset)
+    items: list[Review] = []
+    for review, full_name, service_name in rows:
+        review.reviewer_name = public_display_name(full_name)
+        review.service_name = service_name
+        items.append(review)
     total = await repo.count_by_provider_visible(db, provider_id)
     return items, total
 
@@ -257,9 +308,20 @@ async def list_my_reviews(
     page: int = 1,
     page_size: int = 12,
 ) -> tuple[list[Review], int]:
-    """Return all reviews written by the current user."""
+    """Return all reviews written by the current user.
+
+    Returns a tuple of (items, total). Each item is a Review ORM object
+    annotated with:
+      - reviewer_name: None
+      - service_name: service name from the outer join
+    """
     offset = (page - 1) * page_size
-    items = await repo.list_by_user(db, user_id, page_size, offset)
+    rows = await repo.list_by_user(db, user_id, page_size, offset)
+    items: list[Review] = []
+    for review, _full_name, service_name in rows:
+        review.reviewer_name = None
+        review.service_name = service_name
+        items.append(review)
     total = await repo.count_by_user(db, user_id)
     return items, total
 
@@ -277,9 +339,21 @@ async def list_admin_reviews(
     page: int = 1,
     page_size: int = 12,
 ) -> tuple[list[Review], int]:
-    """Return reviews with optional filters (admin only)."""
+    """Return reviews with optional filters (admin only).
+
+    Returns a tuple of (items, total). Each item is a Review ORM object
+    annotated with:
+      - reviewer_name: the FULL name stripped (or None when missing/blank)
+      - service_name: service name from the outer join
+    """
     offset = (page - 1) * page_size
-    items = await repo.list_admin(db, provider_id, rating, is_visible, page_size, offset)
+    rows = await repo.list_admin(db, provider_id, rating, is_visible, page_size, offset)
+    items: list[Review] = []
+    for review, full_name, service_name in rows:
+        stripped = full_name.strip() if full_name and full_name.strip() else None
+        review.reviewer_name = stripped
+        review.service_name = service_name
+        items.append(review)
     total = await repo.count_admin(db, provider_id, rating, is_visible)
     return items, total
 

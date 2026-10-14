@@ -34,7 +34,12 @@ from schemas.review import (
 
 
 def _serialise(obj) -> dict:
-    """Convert a Review ORM object to the ReviewResponse dict."""
+    """Convert a Review ORM object (or tuple of review, reviewer_name, service_name) to the ReviewResponse dict."""
+    if isinstance(obj, (tuple, list)):
+        review, reviewer_name, service_name = obj
+        review.reviewer_name = reviewer_name
+        review.service_name = service_name
+        return ReviewResponse.model_validate(review).model_dump(mode="json")
     return ReviewResponse.model_validate(obj).model_dump(mode="json")
 
 

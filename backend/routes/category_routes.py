@@ -6,8 +6,8 @@ repository layers.
 
 Auth note
 ---------
-TODO: Replace `require_admin` with Zainab's role-based dependency before
-any deployment. The current stub does nothing and does NOT enforce auth.
+Admin router is guarded by `require_admin` (middleware/admin_guard.py),
+requiring a valid JWT and the ADMIN role.
 """
 
 import uuid
@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import controllers.category_controller as ctrl
 from database.session import get_db
-from middleware.auth_stub import require_admin
+from middleware.admin_guard import require_admin
 from schemas.category import (
     CategoryCreate,
     CategoryDetailResponse,
@@ -46,7 +46,7 @@ async def get_active_category(id: uuid.UUID, db: AsyncSession = Depends(get_db))
 
 # ---------------------------------------------------------------------------
 # Admin router  —  /api/admin/categories
-# Entire router is guarded by the require_admin dependency (stub for now).
+# Entire router is guarded by the require_admin dependency.
 # ---------------------------------------------------------------------------
 
 admin_router = APIRouter(

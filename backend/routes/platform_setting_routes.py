@@ -6,8 +6,8 @@ service -> repository layers.
 
 Auth note
 ---------
-TODO: Replace `require_admin` with Zainab's role-based dependency before
-any deployment. The current stub does nothing and does NOT enforce auth.
+Admin router is guarded by `require_admin` (middleware/admin_guard.py),
+requiring a valid JWT and the ADMIN role.
 """
 
 from fastapi import APIRouter, Depends
@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import controllers.platform_setting_controller as ctrl
 from database.session import get_db
-from middleware.auth_stub import require_admin
+from middleware.admin_guard import require_admin
 from schemas.platform_setting import SettingDetailResponse, SettingListResponse, SettingUpdate
 
 
@@ -33,7 +33,7 @@ async def list_public_settings(db: AsyncSession = Depends(get_db)):
 
 # ---------------------------------------------------------------------------
 # Admin router  —  /api/admin/settings
-# Entire router is guarded by the require_admin dependency (stub for now).
+# Entire router is guarded by the require_admin dependency.
 # ---------------------------------------------------------------------------
 
 admin_router = APIRouter(
