@@ -756,10 +756,22 @@ async def get_review_eligibility(
 
 async def get_upcoming_appointments_for_reminders(
     session: AsyncSession,
-    from_at: datetime,
-    to_at: datetime,
+    from_at: datetime | None = None,
+    to_at: datetime | None = None,
 ):
-    """Return confirmed appointments and their reminder recipients."""
+    """Return confirmed appointments and reminder recipients.
+
+    Without explicit bounds, this is the scheduler interface and returns
+    appointments scheduled during the next 24 hours.
+    """
+    if from_at is None and to_at is None:
+        from_at = datetime.now(UTC)
+        to_at = from_at + timedelta(hours=24)
+    elif from_at is None or to_at is None:
+        raise HTTPException(
+            422,
+            "from_at and to_at must be provided together",
+        )
     if (
         from_at.tzinfo is None
         or from_at.utcoffset() is None

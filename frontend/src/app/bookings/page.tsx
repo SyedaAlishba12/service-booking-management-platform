@@ -18,7 +18,20 @@ export default function MyBookingsPage() {
   const [selectedSlot, setSelectedSlot] = useState("");
   const [busyId, setBusyId] = useState("");
   async function refresh() { try { setData(await bookingApi.mine()); setError(""); } catch (e) { setError(e instanceof Error ? e.message : "Could not load bookings"); } }
-  useEffect(() => { void refresh(); }, []);
+  useEffect(() => {
+    let active = true;
+    bookingApi.mine()
+      .then(result => {
+        if (!active) return;
+        setData(result);
+        setError("");
+      })
+      .catch(e => {
+        if (!active) return;
+        setError(e instanceof Error ? e.message : "Could not load bookings");
+      });
+    return () => { active = false; };
+  }, []);
   async function cancel(id: string) { try { await bookingApi.cancel(id, "Cancelled by customer"); await refresh(); } catch (e) { setError(e instanceof Error ? e.message : "Could not cancel booking"); } }
   async function loadRescheduleSlots() {
     if (!rescheduling || !rescheduleDate) return;
