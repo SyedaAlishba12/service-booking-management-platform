@@ -4,7 +4,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from common.auth_stub import CurrentUser
+from common.auth import CurrentUser
 from common.responses import ApiResponse, ok
 from models.booking import Payment
 from schemas.booking import PaymentCreate, PaymentFailure, PaymentResponse, PaymentRetry, RefundRequest

@@ -19,29 +19,38 @@ export default function BookingPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    let active = true;
     const query = new URLSearchParams(window.location.search);
     const providerQuery = query.get("provider_id") ?? "";
     const serviceQuery = query.get("service_id") ?? "";
-    setProviderId(providerQuery);
-    setServiceId(serviceQuery);
-    Promise.all([bookingApi.providers(), bookingApi.services(providerQuery || undefined)])
-      .then(([providerPage, servicePage]) => {
-        setProviders(providerPage.items);
-        setServices(servicePage.items);
-        if (providerQuery) {
-          const provider = providerPage.items.find(item => item.id === providerQuery);
+    Promise.resolve().then(() => {
+      if (!active) return null;
+      setProviderId(providerQuery);
+      setServiceId(serviceQuery);
+      return Promise.all([
+        bookingApi.providers(),
+        bookingApi.services(providerQuery || undefined),
+      ]);
+    }).then(result => {
+      if (!active || !result) return;
+      const [providerPage, servicePage] = result;
+      setProviders(providerPage.items);
+      setServices(servicePage.items);
+      if (providerQuery) {
+        const provider = providerPage.items.find(item => item.id === providerQuery);
+        if (provider?.timezone) setDay(dateInputValue(new Date(), provider.timezone));
+      }
+      if (serviceQuery && !providerQuery) {
+        const selectedService = servicePage.items.find(service => service.id === serviceQuery);
+        if (selectedService) {
+          setProviderId(selectedService.provider_id);
+          const provider = providerPage.items.find(item => item.id === selectedService.provider_id);
           if (provider?.timezone) setDay(dateInputValue(new Date(), provider.timezone));
         }
-        if (serviceQuery && !providerQuery) {
-          const selectedService = servicePage.items.find(service => service.id === serviceQuery);
-          if (selectedService) {
-            setProviderId(selectedService.provider_id);
-            const provider = providerPage.items.find(item => item.id === selectedService.provider_id);
-            if (provider?.timezone) setDay(dateInputValue(new Date(), provider.timezone));
-          }
-        }
-      })
-      .catch(error => setMessage(error instanceof Error ? error.message : "Could not load providers and services"));
+    }).catch(error => {
+      if (active) setMessage(error instanceof Error ? error.message : "Could not load providers and services");
+    });
+    return () => { active = false; };
   }, []);
 
   async function chooseProvider(id: string) {
