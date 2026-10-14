@@ -1,7 +1,5 @@
 "use client";
 
-// TODO: admin routes are unauthenticated until Zainab's auth is merged; api_client must then send the auth header.
-
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import DashboardStats from "@/components/dashboard/DashboardStats";
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
@@ -20,8 +18,8 @@ export default function AdminOverviewPage() {
   const error = queryError ? getApiErrorMessage(queryError, "Failed to load dashboard stats") : null;
 
   const getStats = (): DashboardStat[] => {
-    if (!data?.data) return [];
-    const stats = data.data;
+    if (!data) return [];
+    const stats = data;
 
     return [
       {
@@ -78,7 +76,7 @@ export default function AdminOverviewPage() {
           <LoadingState message="Loading dashboard statistics..." />
         ) : error ? (
           <ErrorState message={error} action={<Button onClick={() => refetch()}>Retry</Button>} />
-        ) : data?.data ? (
+        ) : data ? (
           <div className="space-y-8">
             <DashboardStats stats={dashboardStats} />
             
@@ -90,19 +88,19 @@ export default function AdminOverviewPage() {
                 <CardContent className="space-y-4">
                   <div className="flex justify-between border-b border-line pb-2">
                     <span className="text-muted">Total</span>
-                    <span className="font-medium">{formatNumber(data.data.users?.total)}</span>
+                    <span className="font-medium">{formatNumber(data.users?.total)}</span>
                   </div>
                   <div className="flex justify-between border-b border-line pb-2">
                     <span className="text-muted">Active</span>
-                    <span className="font-medium">{formatNumber(data.data.users?.active)}</span>
+                    <span className="font-medium">{formatNumber(data.users?.active)}</span>
                   </div>
                   <div className="flex justify-between border-b border-line pb-2">
                     <span className="text-muted">Customers</span>
-                    <span className="font-medium">{formatNumber(data.data.users?.customers)}</span>
+                    <span className="font-medium">{formatNumber(data.users?.customers)}</span>
                   </div>
                   <div className="flex justify-between border-b border-line pb-2">
                     <span className="text-muted">Providers</span>
-                    <span className="font-medium">{formatNumber(data.data.users?.providers)}</span>
+                    <span className="font-medium">{formatNumber(data.users?.providers)}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -114,23 +112,23 @@ export default function AdminOverviewPage() {
                 <CardContent className="space-y-4">
                   <div className="flex justify-between border-b border-line pb-2">
                     <span className="text-muted">Pending</span>
-                    <span className="font-medium">{formatNumber(data.data.bookings?.pending)}</span>
+                    <span className="font-medium">{formatNumber(data.bookings?.pending)}</span>
                   </div>
                   <div className="flex justify-between border-b border-line pb-2">
                     <span className="text-muted">Confirmed</span>
-                    <span className="font-medium">{formatNumber(data.data.bookings?.confirmed)}</span>
+                    <span className="font-medium">{formatNumber(data.bookings?.confirmed)}</span>
                   </div>
                   <div className="flex justify-between border-b border-line pb-2">
                     <span className="text-muted">Completed</span>
-                    <span className="font-medium">{formatNumber(data.data.bookings?.completed)}</span>
+                    <span className="font-medium">{formatNumber(data.bookings?.completed)}</span>
                   </div>
                   <div className="flex justify-between border-b border-line pb-2">
                     <span className="text-muted">Cancelled</span>
-                    <span className="font-medium">{formatNumber(data.data.bookings?.cancelled)}</span>
+                    <span className="font-medium">{formatNumber(data.bookings?.cancelled)}</span>
                   </div>
                   <div className="flex justify-between border-b border-line pb-2">
                     <span className="text-muted">No Show</span>
-                    <span className="font-medium">{formatNumber(data.data.bookings?.no_show)}</span>
+                    <span className="font-medium">{formatNumber(data.bookings?.no_show)}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -142,23 +140,23 @@ export default function AdminOverviewPage() {
                 <CardContent className="space-y-4">
                   <div className="flex justify-between border-b border-line pb-2">
                     <span className="text-muted">Gross Captured</span>
-                    <span className="font-medium text-success">${formatMoney(data.data.payments?.gross_captured)}</span>
+                    <span className="font-medium text-success">${formatMoney(data.payments?.gross_captured)}</span>
                   </div>
                   <div className="flex justify-between border-b border-line pb-2">
                     <span className="text-muted">Refunds</span>
-                    <span className="font-medium text-danger">${formatMoney(data.data.payments?.refunds)}</span>
+                    <span className="font-medium text-danger">${formatMoney(data.payments?.refunds)}</span>
                   </div>
                   <div className="flex justify-between border-b border-line pb-2">
                     <span className="text-muted">Net Collected</span>
-                    <span className="font-medium text-brand font-semibold">${formatMoney(data.data.payments?.net_collected)}</span>
+                    <span className="font-medium text-brand font-semibold">${formatMoney(data.payments?.net_collected)}</span>
                   </div>
                   <div className="flex justify-between border-b border-line pb-2">
                     <span className="text-muted">Pending Count</span>
-                    <span className="font-medium">{formatNumber(data.data.payments?.pending_count)}</span>
+                    <span className="font-medium">{formatNumber(data.payments?.pending_count)}</span>
                   </div>
                   <div className="flex justify-between border-b border-line pb-2">
                     <span className="text-muted">Failed Count</span>
-                    <span className="font-medium">{formatNumber(data.data.payments?.failed_count)}</span>
+                    <span className="font-medium">{formatNumber(data.payments?.failed_count)}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -170,19 +168,19 @@ export default function AdminOverviewPage() {
                 <CardContent className="space-y-4">
                   <div className="flex justify-between border-b border-line pb-2">
                     <span className="text-muted">Total Reviews</span>
-                    <span className="font-medium">{formatNumber(data.data.reviews?.total)}</span>
+                    <span className="font-medium">{formatNumber(data.reviews?.total)}</span>
                   </div>
                   <div className="flex justify-between border-b border-line pb-2">
                     <span className="text-muted">Visible</span>
-                    <span className="font-medium">{formatNumber(data.data.reviews?.visible)}</span>
+                    <span className="font-medium">{formatNumber(data.reviews?.visible)}</span>
                   </div>
                   <div className="flex justify-between border-b border-line pb-2">
                     <span className="text-muted">Hidden</span>
-                    <span className="font-medium">{formatNumber(data.data.reviews?.hidden)}</span>
+                    <span className="font-medium">{formatNumber(data.reviews?.hidden)}</span>
                   </div>
                   <div className="flex justify-between border-b border-line pb-2">
                     <span className="text-muted">Avg Rating</span>
-                    <span className="font-medium">{formatMoney(data.data.reviews?.average_rating)} / 5</span>
+                    <span className="font-medium">{formatMoney(data.reviews?.average_rating)} / 5</span>
                   </div>
                 </CardContent>
               </Card>
@@ -194,19 +192,19 @@ export default function AdminOverviewPage() {
                 <CardContent className="space-y-4">
                   <div className="flex justify-between border-b border-line pb-2">
                     <span className="text-muted">Open</span>
-                    <span className="font-medium text-danger">{formatNumber(data.data.complaints?.open)}</span>
+                    <span className="font-medium text-danger">{formatNumber(data.complaints?.open)}</span>
                   </div>
                   <div className="flex justify-between border-b border-line pb-2">
                     <span className="text-muted">In Review</span>
-                    <span className="font-medium text-warning">{formatNumber(data.data.complaints?.in_review)}</span>
+                    <span className="font-medium text-warning">{formatNumber(data.complaints?.in_review)}</span>
                   </div>
                   <div className="flex justify-between border-b border-line pb-2">
                     <span className="text-muted">Resolved</span>
-                    <span className="font-medium text-success">{formatNumber(data.data.complaints?.resolved)}</span>
+                    <span className="font-medium text-success">{formatNumber(data.complaints?.resolved)}</span>
                   </div>
                   <div className="flex justify-between border-b border-line pb-2">
                     <span className="text-muted">Rejected</span>
-                    <span className="font-medium">{formatNumber(data.data.complaints?.rejected)}</span>
+                    <span className="font-medium">{formatNumber(data.complaints?.rejected)}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -218,11 +216,11 @@ export default function AdminOverviewPage() {
                 <CardContent className="space-y-4">
                   <div className="flex justify-between border-b border-line pb-2">
                     <span className="text-muted">Total Services</span>
-                    <span className="font-medium">{formatNumber(data.data.services?.total)}</span>
+                    <span className="font-medium">{formatNumber(data.services?.total)}</span>
                   </div>
                   <div className="flex justify-between border-b border-line pb-2">
                     <span className="text-muted">Active</span>
-                    <span className="font-medium">{formatNumber(data.data.services?.active)}</span>
+                    <span className="font-medium">{formatNumber(data.services?.active)}</span>
                   </div>
                 </CardContent>
               </Card>

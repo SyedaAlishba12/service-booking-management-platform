@@ -1,5 +1,4 @@
 import { apiClient } from "@/utils/api_client";
-import type { ApiResponse } from "@/types/api";
 import type {
   DashboardStatsData,
   ReportQueryParams,
@@ -13,18 +12,18 @@ import type {
 } from "@/types/admin_report";
 
 export const adminReportApi = {
-  getDashboardStats(): Promise<ApiResponse<DashboardStatsData>> {
-    return apiClient.get<ApiResponse<DashboardStatsData>>(`/api/admin/dashboard/stats`);
+  getDashboardStats(): Promise<DashboardStatsData> {
+    return apiClient.get<DashboardStatsData>(`/api/admin/dashboard/stats`);
   },
 
-  getReport<T>(kind: string, params: ReportQueryParams): Promise<ApiResponse<T>> {
+  getReport<T>(kind: string, params: ReportQueryParams): Promise<T> {
     const query = new URLSearchParams();
     if (params.date_from) query.append("date_from", params.date_from);
     if (params.date_to) query.append("date_to", params.date_to);
     
     const queryString = query.toString();
     const url = `/api/admin/reports/${kind}${queryString ? `?${queryString}` : ""}`;
-    return apiClient.get<ApiResponse<T>>(url);
+    return apiClient.get<T>(url);
   },
   
   getUsersReport(params: ReportQueryParams) {
