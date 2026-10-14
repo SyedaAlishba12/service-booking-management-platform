@@ -1,18 +1,17 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 # pyrefly: ignore [missing-import]
 from slowapi.middleware import SlowAPIMiddleware
 
 from common.error_handlers import register_error_handlers
-<<<<<<< HEAD
-=======
 from common.rate_limiter import limiter
 
-from pathlib import Path
-from fastapi.staticfiles import StaticFiles
-
-from models import (
+# Import all models so SQLAlchemy relationships and Alembic metadata are registered.
+from models import (  # noqa: F401
     availability,
     booking,
     category,
@@ -26,12 +25,8 @@ from models import (
     review,
     service,
     user,
-)  # noqa: F401
+)
 
-from routes.auth_route import router as auth_router
-from routes.user_route import router as user_router
-from routes.notification_route import router as notification_router  # Notification Router
->>>>>>> origin/feature/auth-users-customers-notifications
 from routes import (
     availability_routes,
     booking_routes,
@@ -40,58 +35,33 @@ from routes import (
     provider_routes,
     service_routes,
 )
-<<<<<<< HEAD
-=======
 from routes.admin_routes import admin_router as admin_management_router
->>>>>>> origin/feature/auth-users-customers-notifications
+from routes.auth_route import router as auth_router
 from routes.category_routes import admin_router as category_admin_router
 from routes.category_routes import public_router as category_public_router
 from routes.complaint_routes import admin_router as complaint_admin_router
 from routes.complaint_routes import complaints_router as complaint_user_router
+from routes.notification_route import router as notification_router
 from routes.platform_setting_routes import admin_router as setting_admin_router
 from routes.platform_setting_routes import public_router as setting_public_router
 from routes.report_routes import admin_router as report_admin_router
 from routes.review_routes import admin_router as review_admin_router
 from routes.review_routes import provider_reviews_router as review_provider_router
 from routes.review_routes import reviews_router as review_user_router
+from routes.user_route import router as user_router
 
 from services.booking_eligibility import set_eligibility_provider
 from services.booking_service import get_review_eligibility
-from services.reminder_scheduler import start_scheduler, shutdown_scheduler
+from services.reminder_scheduler import shutdown_scheduler, start_scheduler
 
-<<<<<<< HEAD
-# Import model modules so SQLAlchemy relationships and Alembic metadata are complete.
-from models import (  # noqa: F401
-    availability,
-    booking,
-    category,
-    complaint,
-    customer,
-    notification,
-    platform_setting,
-    provider,
-    review,
-    service,
-    user,
-)
-
-app = FastAPI(
-    title="Service Booking & Management Platform",
-    version="1.0.0",
-)
-register_error_handlers(app)
-
-=======
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # App startup: Start the background appointment reminder scheduler
     start_scheduler()
-    print("Appointment Reminder Scheduler started.")
-    yield
-    # App shutdown: Stop the background scheduler
-    shutdown_scheduler()
-    print("Appointment Reminder Scheduler stopped.")
+    try:
+        yield
+    finally:
+        shutdown_scheduler()
 
 
 app = FastAPI(
@@ -100,21 +70,19 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Rate limiting
 app.state.limiter = limiter
 app.add_middleware(SlowAPIMiddleware)
 
-BACKEND_DIR = Path(__file__).resolve().parent
-UPLOAD_DIR = BACKEND_DIR / "uploads"
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+backend_dir = Path(__file__).resolve().parent
+upload_dir = backend_dir / "uploads"
+upload_dir.mkdir(parents=True, exist_ok=True)
 
 app.mount(
     "/uploads",
-    StaticFiles(directory=UPLOAD_DIR),
+    StaticFiles(directory=upload_dir),
     name="uploads",
 )
 
-# Frontend CORS configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -128,32 +96,22 @@ app.add_middleware(
 
 register_error_handlers(app)
 
-# Provider / Service / Availability routes
->>>>>>> origin/feature/auth-users-customers-notifications
+# Provider, service, availability, booking, payment, and calendar routes.
 for module in (
     provider_routes,
     service_routes,
     availability_routes,
-):
-    app.include_router(module.router)
-
-<<<<<<< HEAD
-for router in (
-    booking_routes.router,
-    payment_routes.router,
-    calendar_routes.router,
-=======
-# Booking / Payment / Calendar routes
-for module in (
     booking_routes,
     payment_routes,
     calendar_routes,
 ):
     app.include_router(module.router)
 
-# Category / Settings / Reviews / Complaints / Notifications routes
-for module in (
->>>>>>> origin/feature/auth-users-customers-notifications
+# Authentication, user, notification, admin, and customer-facing module routes.
+for router in (
+    auth_router,
+    user_router,
+    notification_router,
     category_public_router,
     category_admin_router,
     setting_public_router,
@@ -163,39 +121,22 @@ for module in (
     review_admin_router,
     complaint_user_router,
     complaint_admin_router,
-    notification_router,
     report_admin_router,
     admin_management_router,
 ):
     app.include_router(router)
 
-# Connect booking eligibility service with review system
+# Connect Sayeel's booking eligibility lookup to the review system.
 set_eligibility_provider(get_review_eligibility)
-
-# Authentication and user routes
-app.include_router(auth_router)
-app.include_router(user_router)
 
 
 @app.get("/")
 async def root():
     return {
-<<<<<<< HEAD
-        "message": (
-            "Service Booking & Management Platform API is running"
-        )
-=======
         "message": "Service Booking & Management Platform API is running"
->>>>>>> origin/feature/auth-users-customers-notifications
     }
 
 
 @app.get("/health")
 async def health_check():
-<<<<<<< HEAD
     return {"status": "healthy"}
-=======
-    return {
-        "status": "healthy"
-    }
->>>>>>> origin/feature/auth-users-customers-notifications
