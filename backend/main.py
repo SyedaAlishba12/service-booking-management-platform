@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi.middleware import SlowAPIMiddleware
@@ -26,7 +27,7 @@ from models import (
 
 from routes.auth_route import router as auth_router
 from routes.user_route import router as user_router
-from routes.notification_route import router as notification_router  # <-- Added Notification Router
+from routes.notification_route import router as notification_router  # Notification Router
 from routes import (
     availability_routes,
     booking_routes,
@@ -47,11 +48,24 @@ from routes.review_routes import reviews_router as review_user_router
 
 from services.booking_eligibility import set_eligibility_provider
 from services.booking_service import get_review_eligibility
+from services.reminder_scheduler import start_scheduler, shutdown_scheduler
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # App startup: Start the background appointment reminder scheduler
+    start_scheduler()
+    print("Appointment Reminder Scheduler started.")
+    yield
+    # App shutdown: Stop the background scheduler
+    shutdown_scheduler()
+    print("Appointment Reminder Scheduler stopped.")
 
 
 app = FastAPI(
     title="Service Booking & Management Platform",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 # Rate limiting
@@ -67,6 +81,7 @@ app.mount(
     StaticFiles(directory=UPLOAD_DIR),
     name="uploads",
 )
+
 # Frontend CORS configuration
 app.add_middleware(
     CORSMiddleware,
@@ -81,7 +96,7 @@ app.add_middleware(
 
 register_error_handlers(app)
 
-# Provider / Service / Availability
+# Provider / Service / Availability routes
 for module in (
     provider_routes,
     service_routes,
@@ -89,7 +104,7 @@ for module in (
 ):
     app.include_router(module.router)
 
-# Booking / Payment / Calendar
+# Booking / Payment / Calendar routes
 for module in (
     booking_routes,
     payment_routes,
@@ -97,7 +112,7 @@ for module in (
 ):
     app.include_router(module.router)
 
-# Category / Settings / Reviews / Complaints / Notifications
+# Category / Settings / Reviews / Complaints / Notifications routes
 for module in (
     category_public_router,
     category_admin_router,
@@ -108,7 +123,7 @@ for module in (
     review_admin_router,
     complaint_user_router,
     complaint_admin_router,
-    notification_router,  # <-- Included here
+    notification_router,
 ):
     app.include_router(module)
 
