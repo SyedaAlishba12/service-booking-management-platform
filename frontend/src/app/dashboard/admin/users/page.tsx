@@ -147,11 +147,15 @@ export default function AdminUsersPage() {
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-soft text-sm font-semibold text-brand">
               {u.profile_image_url ? (
-                <img
-                  src={u.profile_image_url}
-                  alt={u.full_name}
-                  className="h-full w-full rounded-full object-cover"
-                />
+                <>
+                  {/* External avatar URLs are user-provided and not configured for next/image. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={u.profile_image_url}
+                    alt={u.full_name}
+                    className="h-full w-full rounded-full object-cover"
+                  />
+                </>
               ) : (
                 initials
               )}
@@ -387,11 +391,15 @@ export default function AdminUsersPage() {
             <div className="flex items-center gap-4 p-4 rounded-2xl bg-brand-soft/40 border border-line">
               <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-brand-soft text-lg font-bold text-brand">
                 {userDetail.profile_image_url ? (
-                  <img
-                    src={userDetail.profile_image_url}
-                    alt={userDetail.full_name}
-                    className="h-full w-full rounded-full object-cover"
-                  />
+                  <>
+                    {/* External avatar URLs are user-provided and not configured for next/image. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={userDetail.profile_image_url}
+                      alt={userDetail.full_name}
+                      className="h-full w-full rounded-full object-cover"
+                    />
+                  </>
                 ) : (
                   userDetail.full_name.substring(0, 2).toUpperCase()
                 )}

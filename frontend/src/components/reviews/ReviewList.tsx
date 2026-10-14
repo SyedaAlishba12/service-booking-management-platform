@@ -1,6 +1,6 @@
 /**
  * @file ReviewList.tsx
- * @description List of reviews for a provider
+ * Props: providerId identifies the provider; pageSize controls page length.
  */
 
 import { useState } from "react";

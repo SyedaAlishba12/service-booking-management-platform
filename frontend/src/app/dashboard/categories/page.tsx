@@ -24,6 +24,7 @@ import {
   useReactivateCategory,
 } from "@/hooks/useAdminCategories";
 import type { Category, CategoryCreatePayload, CategoryUpdatePayload } from "@/types/category";
+import AdminRouteGuard from "@/components/admin/AdminRouteGuard";
 
 export default function CategoriesPage() {
   const { data: categories = [], isLoading: loading, error: queryError, refetch } = useAdminCategories();
@@ -189,6 +190,7 @@ export default function CategoriesPage() {
   ];
 
   return (
+    <AdminRouteGuard>
     <DashboardLayout
       sidebarItems={adminSidebarItems}
       activeHref="/dashboard/categories"
@@ -253,5 +255,6 @@ export default function CategoriesPage() {
         />
       </div>
     </DashboardLayout>
+    </AdminRouteGuard>
   );
 }
