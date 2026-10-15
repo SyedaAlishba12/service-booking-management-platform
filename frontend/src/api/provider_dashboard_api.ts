@@ -80,9 +80,9 @@ export const providerDashboardApi = {
       return { bookings: { today_count: 0, today_remaining: 0, upcoming_count: 0, pending_count: 0, upcoming: [] }, earnings: { this_month: 0, last_month: 0 }, customers: { total: 0, returning: 0 }, rating: { average: 0, total: 0, breakdown: { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 } }, activity: [], is_sample: false };
     }
     const now = new Date();
-    const startThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const startLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const startNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const startThisMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const startLastMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+    const startNextMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
     const upcomingEnd = new Date(now);
     upcomingEnd.setDate(upcomingEnd.getDate() + 30);
     const [bookingPage, currentEarnings, lastEarnings, customers, rating] = await Promise.all([

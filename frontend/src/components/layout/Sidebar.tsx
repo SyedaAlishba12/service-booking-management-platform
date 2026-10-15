@@ -21,14 +21,14 @@ function Icon({
   type,
 }: {
   type:
-    | "dashboard"
-    | "calendar"
-    | "booking"
-    | "service"
-    | "provider"
-    | "review"
-    | "category"
-    | "settings";
+  | "dashboard"
+  | "calendar"
+  | "booking"
+  | "service"
+  | "provider"
+  | "review"
+  | "category"
+  | "settings";
 }) {
   const common = {
     width: 20,
@@ -141,14 +141,15 @@ export default function Sidebar({
   isOpen,
   onClose,
 }: SidebarProps) {
-  const { user, loading } = useAuth();
-
+const { user, loading } = useAuth();
 const settingsItem = items.find((item) => item.label === "Settings");
 
 const workspaceLabels = new Set([
   "Dashboard",
   "Calendar",
   "Bookings",
+  "Earnings",
+  "Customers",
   "Services",
   "Providers",
 ]);
@@ -170,11 +171,10 @@ const manageItems = items.filter(
         href={item.href}
         onClick={onClose}
         aria-current={active ? "page" : undefined}
-        className={`flex h-11 items-center gap-3 rounded-xl px-4 text-base font-medium transition-colors ${
-          active
+        className={`flex h-11 items-center gap-3 rounded-xl px-4 text-base font-medium transition-colors ${active
             ? "bg-sidebar text-white shadow-sm"
             : "text-foreground/75 hover:bg-brand-soft hover:text-brand"
-        }`}
+          }`}
       >
         <span className="flex h-5 w-5 shrink-0 items-center justify-center">
           {item.icon ?? (
@@ -194,6 +194,15 @@ const manageItems = items.filter(
     ? user.full_name.charAt(0).toUpperCase()
     : "U";
 
+  // Profile image URL formatting with backend base URL fallback
+  const profileImageUrl = user?.profile_image_url
+    ? user.profile_image_url.startsWith("http")
+      ? user.profile_image_url
+      : `${(
+          process.env.NEXT_PUBLIC_API_URL ?? ""
+        ).replace(/\/$/, "")}${user.profile_image_url}`
+    : null;
+
   return (
     <>
       {isOpen && (
@@ -207,9 +216,8 @@ const manageItems = items.filter(
 
       {/* Floating panel */}
       <aside
-        className={`fixed bottom-4 left-4 top-4 z-50 flex w-[232px] flex-col rounded-3xl bg-white shadow-[0_8px_30px_rgba(8,45,110,0.10)] transition-transform duration-200 lg:translate-x-0 ${
-          isOpen ? "translate-x-0" : "-translate-x-[120%]"
-        }`}
+        className={`fixed bottom-4 left-4 top-4 z-50 flex w-[232px] flex-col rounded-3xl bg-white shadow-[0_8px_30px_rgba(8,45,110,0.10)] transition-transform duration-200 lg:translate-x-0 ${isOpen ? "translate-x-0" : "-translate-x-[120%]"
+          }`}
       >
         {/* Brand */}
         <div className="px-5 pb-3 pt-6">
@@ -255,9 +263,9 @@ const manageItems = items.filter(
 
           <div className="mt-2 flex items-center gap-3 rounded-xl px-4 py-2.5">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-sidebar text-base font-semibold text-white">
-              {user?.profile_image_url ? (
+              {profileImageUrl ? (
                 <img
-                  src={user.profile_image_url}
+                  src={profileImageUrl}
                   alt={displayName}
                   className="h-full w-full object-cover"
                 />

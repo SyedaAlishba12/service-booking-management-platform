@@ -20,7 +20,7 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import { getApiErrorMessage } from "@/utils/api_error_handler";
 
 function getRoleDashboard(role: string): string | null {
-  if (role === "CUSTOMER") return "/dashboard";
+  if (role === "CUSTOMER") return "/customer/dashboard";
   if (role === "PROVIDER") return "/provider/dashboard";
   if (role === "ADMIN") return "/dashboard/admin";
 
