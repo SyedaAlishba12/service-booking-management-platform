@@ -2,8 +2,6 @@ import { apiClient } from "@/utils/api_client";
 import type { PaginatedData } from "@/types/api";
 import type { AdminComplaint, ComplaintCreatePayload } from "@/types/complaint";
 
-// TODO: once the real auth lands, api_client should attach the token and these options will no longer be needed.
-
 export const complaintApi = {
   createComplaint(payload: ComplaintCreatePayload, options?: RequestInit): Promise<AdminComplaint> {
     return apiClient.post<AdminComplaint>(`/api/complaints`, payload, options);

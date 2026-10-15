@@ -1,6 +1,6 @@
 "use client";
 
-// TODO: admin routes are unauthenticated until Zainab's auth is merged; api_client must then send the auth header.
+
 
 import { useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
@@ -24,6 +24,7 @@ import {
   useReactivateCategory,
 } from "@/hooks/useAdminCategories";
 import type { Category, CategoryCreatePayload, CategoryUpdatePayload } from "@/types/category";
+import AdminRouteGuard from "@/components/admin/AdminRouteGuard";
 
 export default function CategoriesPage() {
   const { data: categories = [], isLoading: loading, error: queryError, refetch } = useAdminCategories();
@@ -189,6 +190,7 @@ export default function CategoriesPage() {
   ];
 
   return (
+    <AdminRouteGuard>
     <DashboardLayout
       sidebarItems={adminSidebarItems}
       activeHref="/dashboard/categories"
@@ -253,5 +255,6 @@ export default function CategoriesPage() {
         />
       </div>
     </DashboardLayout>
+    </AdminRouteGuard>
   );
 }
