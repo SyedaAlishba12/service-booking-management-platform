@@ -8,12 +8,13 @@ import { apiClient } from "@/utils/api_client";
 import LoadingState from "@/components/ui/LoadingState";
 import Alert from "@/components/ui/Alert";
 import { Card } from "@/components/ui/Card";
-import { ArrowLeft, Check, CheckCheck, Trash2 } from "lucide-react";
+import { ArrowLeft, Check, CheckCheck, Trash2, Bell } from "lucide-react";
 
 interface NotificationItem {
   id: string;
   title: string;
   message: string;
+  notification_type: string;
   is_read: boolean;
   created_at: string;
 }
@@ -21,6 +22,7 @@ interface NotificationItem {
 function NotificationsContent() {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [filter, setFilter] = useState<"all" | "unread">("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -85,6 +87,12 @@ function NotificationsContent() {
     }
   }
 
+  const unreadCount = notifications.filter((item) => !item.is_read).length;
+  const filteredNotifications = notifications.filter((item) => {
+    if (filter === "unread") return !item.is_read;
+    return true;
+  });
+
   const dashboardHref =
     user?.role === "PROVIDER" ? "/provider/dashboard" : "/customer/dashboard";
 
@@ -110,24 +118,57 @@ function NotificationsContent() {
           </button>
         </div>
 
-        <div className="rounded-3xl bg-surface p-6 shadow-[0_12px_40px_rgba(8,45,110,0.06)] sm:p-8">
-          <h1 className="text-2xl font-bold text-foreground">Notifications</h1>
-          <p className="mt-1 text-sm text-muted">
-            View, read, and manage your activity alerts and updates.
-          </p>
+        <div className="flex flex-col justify-between gap-4 rounded-3xl bg-surface p-6 shadow-[0_12px_40px_rgba(8,45,110,0.06)] sm:flex-row sm:items-center sm:p-8">
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold text-foreground">Notifications</h1>
+              {unreadCount > 0 && (
+                <span className="flex items-center gap-1 rounded-full bg-red-500 px-3 py-0.5 text-xs font-bold text-white shadow-sm">
+                  <Bell size={12} />
+                  {unreadCount} unread
+                </span>
+              )}
+            </div>
+            <p className="mt-1 text-sm text-muted">
+              View, read, and manage your activity alerts and updates.
+            </p>
+          </div>
+
+          <div className="flex gap-2">
+            <button
+              onClick={() => setFilter("all")}
+              className={`rounded-xl px-4 py-2 text-xs font-semibold transition-colors ${
+                filter === "all"
+                  ? "bg-brand text-white"
+                  : "bg-surface-blue text-foreground hover:bg-line"
+              }`}
+            >
+              All ({notifications.length})
+            </button>
+            <button
+              onClick={() => setFilter("unread")}
+              className={`rounded-xl px-4 py-2 text-xs font-semibold transition-colors ${
+                filter === "unread"
+                  ? "bg-brand text-white"
+                  : "bg-surface-blue text-foreground hover:bg-line"
+              }`}
+            >
+              Unread ({unreadCount})
+            </button>
+          </div>
         </div>
 
         {error && <Alert variant="error">{error}</Alert>}
 
         {loading ? (
           <LoadingState message="Loading notifications..." />
-        ) : notifications.length === 0 ? (
+        ) : filteredNotifications.length === 0 ? (
           <Card className="p-12 text-center">
-            <p className="text-sm text-muted">You have no notifications.</p>
+            <p className="text-sm text-muted">No notifications found.</p>
           </Card>
         ) : (
           <div className="space-y-3">
-            {notifications.map((item) => (
+            {filteredNotifications.map((item) => (
               <Card
                 key={item.id}
                 className={`flex items-start justify-between gap-4 p-5 transition-all ${

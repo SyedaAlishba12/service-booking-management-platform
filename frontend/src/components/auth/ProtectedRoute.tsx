@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 import LoadingState from "@/components/ui/LoadingState";
@@ -18,21 +18,27 @@ export default function ProtectedRoute({
 
   const router = useRouter();
   const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    if (!loading && !isAuthenticated) {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (mounted && !loading && !isAuthenticated) {
       router.replace(
         `/login?next=${encodeURIComponent(pathname)}`
       );
     }
   }, [
+    mounted,
     loading,
     isAuthenticated,
     pathname,
     router,
   ]);
 
-  if (loading) {
+  if (!mounted || loading) {
     return (
       <LoadingState
         message="Checking your session..."

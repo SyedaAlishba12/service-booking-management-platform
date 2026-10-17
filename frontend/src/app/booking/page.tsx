@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { bookingApi } from "@/api/booking_api";
 import Button from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -68,7 +69,7 @@ export default function BookingPage() {
               setDay(dateInputValue(new Date(), provider.timezone));
             }
           }
-        } // This closes the outer serviceQuery condition.
+        }
       })
       .catch((error) => {
         if (active) {
@@ -147,6 +148,15 @@ export default function BookingPage() {
 
   return (
     <main className="mx-auto max-w-4xl space-y-6 px-5 py-10">
+      <div>
+        <Link
+          href="/customer/dashboard"
+          className="text-sm font-medium text-blue-700 hover:underline"
+        >
+          &larr; Back to dashboard
+        </Link>
+      </div>
+
       <header>
         <p className="text-sm font-semibold uppercase tracking-wide text-brand">
           Booking

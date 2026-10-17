@@ -1,529 +1,506 @@
 "use client";
 
-import { useState } from "react";
-
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import Button from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
+import { useAuth } from "@/app/providers/AuthProvider";
+import { apiClient } from "@/utils/api_client";
 
-import DashboardWelcome from "@/components/dashboard/DashboardWelcome";
-import DashboardHero from "@/components/dashboard/DashboardHero";
-import DashboardStats from "@/components/dashboard/DashboardStats";
-import QuickActions from "@/components/dashboard/QuickActions";
-import RecentActivity from "@/components/dashboard/RecentActivity";
-import UpcomingSchedule from "@/components/dashboard/UpcomingSchedule";
-import LoadingState from "@/components/ui/LoadingState";
-import ErrorState from "@/components/ui/ErrorState";
+type RecordData = Record<string, any>;
 
-import { useCustomerProfile, useCustomerDashboardExtras } from "@/hooks/useCustomerDashboard";
-import { getApiErrorMessage } from "@/utils/api_error_handler";
+type DashboardState = {
+  user: RecordData | null;
+  bookings: RecordData[];
+  notifications: RecordData[];
+  services: RecordData[];
+};
 
-import type {
-  DashboardActivity,
-  DashboardAppointment,
-  DashboardStat,
-  QuickAction,
-} from "@/types/dashboard";
+const NAV_ITEMS = [
+  { label: "Dashboard", href: "/customer/dashboard" },
+  { label: "Bookings", href: "/booking" },
+  { label: "Services", href: "/services" },
+  { label: "Notifications", href: "/notifications" },
+  { label: "Settings", href: "/customer/profile" },
+];
 
-const days = ["M", "T", "W", "T", "F", "S", "S"];
+function asArray(value: any): RecordData[] {
+  if (Array.isArray(value)) return value;
+  if (!value || typeof value !== "object") return [];
 
-function DotsIcon({ className = "" }: { className?: string }) {
-  return (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className={className}
-      aria-hidden="true"
-    >
-      <circle cx="5" cy="12" r="1.8" />
-      <circle cx="12" cy="12" r="1.8" />
-      <circle cx="19" cy="12" r="1.8" />
-    </svg>
+  for (const key of ["items", "results", "records", "data"]) {
+    if (Array.isArray(value[key])) return value[key];
+  }
+
+  if (value.data && typeof value.data === "object") {
+    for (const key of ["items", "results", "records"]) {
+      if (Array.isArray(value.data[key])) return value.data[key];
+    }
+  }
+
+  return [];
+}
+
+function bookingTime(booking: RecordData): number {
+  const value = booking.start_at ?? booking.start_time ?? booking.booking_date;
+  if (!value) return 0;
+
+  const timestamp = new Date(value).getTime();
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function dateLabel(value: unknown): string {
+  if (!value) return "Date not available";
+
+  const date = new Date(String(value));
+  if (Number.isNaN(date.getTime())) return "Date not available";
+
+  return date.toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+function statusLabel(value: unknown): string {
+  return String(value ?? "PENDING")
+    .replaceAll("_", " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function isFinished(booking: RecordData): boolean {
+  const status = String(booking.status ?? "").toUpperCase();
+  return ["CANCELLED", "COMPLETED", "NO_SHOW", "REJECTED"].some(
+    (item) => status.includes(item)
   );
 }
 
-function CheckIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="3"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="m5 12 5 5 9-10" />
-    </svg>
-  );
-}
-
-function ArrowIcon() {
-  return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M7 17 17 7M9 7h8v8" />
-    </svg>
-  );
-}
-
-function Ring({
-  r,
-  pct,
-  color,
+function Panel({
+  title,
+  children,
+  action,
 }: {
-  r: number;
-  pct: number;
-  color: string;
+  title: string;
+  children: React.ReactNode;
+  action?: React.ReactNode;
 }) {
-  const circumference = 2 * Math.PI * r;
-
   return (
-    <>
-      <circle
-        cx="50"
-        cy="50"
-        r={r}
-        fill="none"
-        stroke="var(--brand-soft)"
-        strokeWidth="7"
-      />
-
-      <circle
-        cx="50"
-        cy="50"
-        r={r}
-        fill="none"
-        stroke={color}
-        strokeWidth="7"
-        strokeLinecap="round"
-        strokeDasharray={circumference}
-        strokeDashoffset={circumference - circumference * pct}
-      />
-    </>
-  );
-}
-
-function WeeklyChart() {
-  return (
-    <div className="mt-5">
-      <svg
-        viewBox="0 0 420 130"
-        preserveAspectRatio="none"
-        className="h-[135px] w-full"
-        aria-hidden="true"
-      >
-        <defs>
-          <linearGradient
-            id="weekly-bookings"
-            x1="0"
-            y1="0"
-            x2="0"
-            y2="1"
-          >
-            <stop
-              offset="0"
-              stopColor="var(--brand)"
-              stopOpacity="0.18"
-            />
-            <stop
-              offset="1"
-              stopColor="var(--brand)"
-              stopOpacity="0"
-            />
-          </linearGradient>
-        </defs>
-
-        {[25, 60, 95].map((y) => (
-          <line
-            key={y}
-            x1="0"
-            x2="420"
-            y1={y}
-            y2={y}
-            stroke="var(--line)"
-            strokeDasharray="3 5"
-          />
-        ))}
-
-        <path
-          d="M0 95 L50 42 L90 82 L140 25 L190 78 L240 22 L290 68 L340 18 L380 88 L420 35 L420 130 L0 130Z"
-          fill="url(#weekly-bookings)"
-        />
-
-        <path
-          d="M0 95 C25 78 35 42 50 42 S75 87 90 82 S120 25 140 25 S170 82 190 78 S220 22 240 22 S270 73 290 68 S320 18 340 18 S365 92 380 88 S405 40 420 35"
-          fill="none"
-          stroke="var(--sidebar)"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-        />
-
-        <path
-          d="M0 112 C40 103 60 75 100 88 S160 105 200 67 S260 80 300 48 S370 80 420 60"
-          fill="none"
-          stroke="var(--secondary)"
-          strokeOpacity="0.55"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-      </svg>
-
-      <div className="mt-2 flex justify-between">
-        {days.map((day, index) => (
-          <span
-            key={`${day}-${index}`}
-            className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${
-              index === 5
-                ? "bg-sidebar text-white"
-                : "text-muted"
-            }`}
-          >
-            {day}
-          </span>
-        ))}
+    <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+        {action}
       </div>
-    </div>
+      {children}
+    </section>
   );
 }
-
-const initialGoals = [
-  { text: "Complete 25 bookings", done: true },
-  { text: "Leave 5 reviews", done: true },
-  { text: "Try 2 new providers", done: false },
-  { text: "Reschedule less than 3 times", done: false },
-];
-
-const quickActions: QuickAction[] = [
-  {
-    label: "Find a service",
-    description: "Browse services and choose a convenient time",
-    href: "/customer/services",
-    primary: true,
-  },
-  {
-    label: "My bookings",
-    description: "View upcoming and past appointments",
-    href: "/customer/bookings",
-  },
-  {
-    label: "Find providers",
-    description: "Explore trusted service providers",
-    href: "/customer/providers",
-  },
-];
 
 export default function CustomerDashboardPage() {
-  const [goals, setGoals] = useState(initialGoals);
-  const customer = useCustomerProfile();
-  const extras = useCustomerDashboardExtras();
+  const { user: authUser } = useAuth();
 
-  const completedGoals = goals.filter((goal) => goal.done).length;
-
-  const toggleGoal = (index: number) => {
-    setGoals((current) =>
-      current.map((goal, goalIndex) =>
-        goalIndex === index ? { ...goal, done: !goal.done } : goal
-      )
-    );
-  };
-
-  const sidebarItems = [
-    { label: "Dashboard", href: "/customer/dashboard" },
-    { label: "Calendar", href: "/customer/calendar" },
-    { label: "Bookings", href: "/customer/bookings" },
-    { label: "Services", href: "/customer/services" },
-    { label: "Providers", href: "/customer/providers" },
-    { label: "Reviews", href: "/customer/reviews" },
-    { label: "Settings", href: "/customer/settings" },
-  ];
-
-  if (customer.isLoading || extras.isLoading) {
-    return <LoadingState message="Loading your dashboard..." />;
-  }
-
-  if (customer.isError) {
-    return <ErrorState message={getApiErrorMessage(customer.error)} />;
-  }
-
-  const customerName = customer.data?.user?.full_name || "Customer";
-  const dateLabel = new Date().toLocaleDateString("en-GB", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
+  const [data, setData] = useState<DashboardState>({
+    user: null,
+    bookings: [],
+    notifications: [],
+    services: [],
   });
+  const [loading, setLoading] = useState(true);
+  const [pageError, setPageError] = useState("");
+  const [bookingError, setBookingError] = useState("");
+  const [notificationError, setNotificationError] = useState("");
 
-  const dashboardStats: DashboardStat[] = [
-    {
-      label: "Total bookings",
-      value: String(extras.data?.bookings?.completed_count || 0),
-      detail: "All time completed & active",
-      trend: "up",
-    },
-    {
-      label: "Upcoming",
-      value: String(extras.data?.bookings?.upcoming_count || 0),
-      detail: `${extras.data?.bookings?.pending_count || 0} pending confirmation`,
-      trend: "neutral",
-    },
-    {
-      label: "Completed",
-      value: String(extras.data?.bookings?.completed_count || 0),
-      detail: "Successfully finished",
-      trend: "up",
-    },
-    {
-      label: "Notifications",
-      value: String(extras.data?.notifications?.unread_count || 0),
-      detail: "Unread alerts",
-      trend: "neutral",
-    },
-  ];
+  const loadDashboard = useCallback(async () => {
+    setLoading(true);
+    setPageError("");
+    setBookingError("");
+    setNotificationError("");
 
-  const upcomingBookings: DashboardAppointment[] = extras.data?.bookings?.upcoming || [];
-  const nextAppointment = upcomingBookings.length > 0 ? upcomingBookings[0] : null;
-  const dashboardActivity: DashboardActivity[] = extras.data?.activity || [];
+    const [userResult, bookingResult, notificationResult, serviceResult] =
+      await Promise.allSettled([
+        apiClient.get<RecordData>("/api/users/me"),
+        apiClient.get<any>("/api/bookings?page=1&page_size=100"),
+        apiClient.get<any>("/api/notifications/unread"),
+        apiClient.get<any>("/api/services?page=1&page_size=6"),
+      ]);
+
+    if (userResult.status === "fulfilled") {
+      setData((previous) => ({ ...previous, user: userResult.value }));
+    } else {
+      setPageError("Could not load your profile. Please refresh the page.");
+    }
+
+    if (bookingResult.status === "fulfilled") {
+      setData((previous) => ({
+        ...previous,
+        bookings: asArray(bookingResult.value),
+      }));
+    } else {
+      setBookingError("Bookings could not be loaded right now.");
+    }
+
+    if (notificationResult.status === "fulfilled") {
+      setData((previous) => ({
+        ...previous,
+        notifications: asArray(notificationResult.value),
+      }));
+    } else {
+      setNotificationError("Notifications could not be loaded.");
+    }
+
+    if (serviceResult.status === "fulfilled") {
+      setData((previous) => ({
+        ...previous,
+        services: asArray(serviceResult.value),
+      }));
+    }
+
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    void loadDashboard();
+  }, [loadDashboard]);
+
+  const user = data.user ?? (authUser as RecordData | null);
+  const name = user?.full_name || user?.name || "Customer";
+  const profileImage = user?.profile_image_url;
+
+  const sortedBookings = [...data.bookings].sort(
+    (a, b) => bookingTime(b) - bookingTime(a)
+  );
+
+  const upcomingBookings = sortedBookings
+    .filter(
+      (booking) =>
+        !isFinished(booking) &&
+        bookingTime(booking) >= Date.now()
+    )
+    .sort((a, b) => bookingTime(a) - bookingTime(b));
+
+  const recentBookings = sortedBookings.slice(0, 5);
+
+  const profileImageUrl =
+    profileImage && profileImage.startsWith("http")
+      ? profileImage
+      : profileImage
+        ? `${process.env.NEXT_PUBLIC_API_URL}${profileImage}`
+        : "";
 
   return (
     <DashboardLayout
-      sidebarItems={sidebarItems}
+      sidebarItems={NAV_ITEMS}
       activeHref="/customer/dashboard"
-      userName={customerName}
-      notificationCount={extras.data?.notifications?.unread_count || 0}
+      title="Customer Dashboard"
+      description="Manage your account and appointments"
+      userName={name}
+      userEmail={user?.email}
+      notificationCount={data.notifications.length}
     >
-      <div className="space-y-7">
-        <DashboardWelcome
-          name={customerName}
-          dateLabel={dateLabel}
-        />
+      <div className="space-y-6">
+        {pageError && (
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            {pageError}
+            <button
+              onClick={() => void loadDashboard()}
+              className="ml-3 font-semibold underline"
+            >
+              Try again
+            </button>
+          </div>
+        )}
 
-        <DashboardHero
-          appointment={nextAppointment}
-          onReschedule={() => {}}
-        />
-
-        <DashboardStats stats={dashboardStats} />
-
-        <section className="grid gap-5 xl:grid-cols-[1.05fr_1.25fr_0.85fr]">
-          <Card variant="dark" className="p-5">
-            <div className="flex items-center justify-between">
-              <div className="text-lg font-bold">Overall information</div>
-              <DotsIcon className="text-white/80" />
-            </div>
-
-            <div className="mt-5 flex items-end gap-6">
-              <div>
-                <span className="text-4xl font-bold leading-none">
-                  {extras.data?.bookings?.completed_count || 0}
-                </span>
-                <span className="ml-2 text-sm leading-5 text-white/80">
-                  bookings
-                  <br />
-                  completed
-                </span>
-              </div>
-
-              <div className="border-l border-white/25 pl-6">
-                <span className="text-4xl font-bold leading-none">
-                  {extras.data?.bookings?.pending_count || 0}
-                </span>
-                <span className="ml-2 text-sm leading-5 text-white/80">
-                  pending
-                  <br />
-                  bookings
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-white/20">
-              <div className="h-full w-3/4 rounded-full bg-white" />
-            </div>
-
-            <div className="mt-5 grid grid-cols-3 gap-3">
-              {[
-                { n: String(extras.data?.bookings?.upcoming_count || 0), l: "Upcoming" },
-                { n: String(extras.data?.bookings?.completed_count || 0), l: "Completed" },
-                { n: "0", l: "Cancelled" },
-              ].map((item) => (
-                <div
-                  key={item.l}
-                  className="rounded-2xl bg-white px-2.5 py-3 text-center text-foreground"
+        {/* Welcome Section - Global Design System Theme Matched */}
+        <section className="blue-surface overflow-hidden rounded-card p-6 shadow-md sm:p-8">
+          <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
+            <div>
+              <p className="text-sm font-medium text-text-on-blue/80">Customer Dashboard</p>
+              <h1 className="mt-2 text-3xl font-bold tracking-tight text-text-on-blue">
+                Welcome, {name}!
+              </h1>
+              <p className="mt-2 max-w-xl text-sm leading-relaxed text-text-on-blue/90">
+                Find services, manage your appointments, and keep your account up to date.
+              </p>
+              <div className="mt-5 flex flex-wrap gap-3">
+                <Link
+                  href="/services"
+                  className="btn-outline rounded-xl bg-surface px-4 py-2.5 text-sm font-semibold text-brand shadow-sm transition hover:bg-brand-soft"
                 >
-                  <div className="text-xl font-bold leading-none">{item.n}</div>
-                  <div className="mt-1.5 text-xs font-medium text-muted">{item.l}</div>
-                </div>
+                  Explore Services
+                </Link>
+                <Link
+                  href="/booking"
+                  className="rounded-xl border border-white/40 bg-white/10 px-4 py-2.5 text-sm font-semibold text-text-on-blue transition hover:bg-white/20"
+                >
+                  My Bookings
+                </Link>
+              </div>
+            </div>
+
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white/60 bg-white/15 text-2xl font-bold text-text-on-blue shadow-inner">
+              {profileImageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={profileImageUrl}
+                  alt="Profile"
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                name.charAt(0).toUpperCase()
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* Statistics Cards */}
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {[
+            {
+              title: "Upcoming Bookings",
+              value: loading ? "—" : upcomingBookings.length,
+              note: "Appointments ahead",
+            },
+            {
+              title: "Recent Bookings",
+              value: loading ? "—" : data.bookings.length,
+              note: "Bookings returned by the API",
+            },
+            {
+              title: "Unread Notifications",
+              value: loading ? "—" : data.notifications.length,
+              note: "Updates for your account",
+            },
+            {
+              title: "Available Services",
+              value: loading ? "—" : data.services.length,
+              note: "Services returned by search",
+            },
+          ].map((stat) => (
+            <div
+              key={stat.title}
+              className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
+            >
+              <p className="text-sm text-gray-500">{stat.title}</p>
+              <p className="mt-2 text-3xl font-bold text-gray-900">
+                {stat.value}
+              </p>
+              <p className="mt-1 text-xs text-gray-500">{stat.note}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Upcoming Appointments & Recent Bookings Panels */}
+        <div className="grid gap-6 xl:grid-cols-2">
+          <Panel
+            title="Upcoming Appointments"
+            action={
+              <Link
+                href="/booking"
+                className="text-sm font-medium text-blue-700 hover:underline"
+              >
+                View all
+              </Link>
+            }
+          >
+            {loading ? (
+              <p className="py-6 text-sm text-gray-500">
+                Loading appointments…
+              </p>
+            ) : bookingError ? (
+              <div className="space-y-3 text-sm text-red-600">
+                <p>{bookingError}</p>
+                <button
+                  onClick={() => void loadDashboard()}
+                  className="font-semibold underline"
+                >
+                  Try again
+                </button>
+              </div>
+            ) : upcomingBookings.length === 0 ? (
+              <div className="rounded-xl bg-gray-50 px-4 py-8 text-center">
+                <p className="font-medium text-gray-800">
+                  No upcoming appointments
+                </p>
+                <p className="mt-1 text-sm text-gray-500">
+                  Browse services to plan your next appointment.
+                </p>
+                <Link
+                  href="/services"
+                  className="mt-4 inline-block text-sm font-semibold text-blue-700 hover:underline"
+                >
+                  Find a service
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {upcomingBookings.slice(0, 4).map((booking) => (
+                  <div
+                    key={booking.id}
+                    className="flex flex-col justify-between gap-3 rounded-xl border border-gray-100 p-4 sm:flex-row sm:items-center"
+                  >
+                    <div>
+                      <p className="font-semibold text-gray-900">
+                        {booking.service_name || "Service appointment"}
+                      </p>
+                      <p className="mt-1 text-sm text-gray-500">
+                        Provider: {booking.provider_name || "Not specified"}
+                      </p>
+                      <p className="mt-1 text-sm text-gray-500">
+                        {dateLabel(booking.start_at)}
+                      </p>
+                    </div>
+                    <span className="w-fit rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+                      {statusLabel(booking.status)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Panel>
+
+          <Panel
+            title="Recent Bookings"
+            action={
+              <Link
+                href="/booking"
+                className="text-sm font-medium text-blue-700 hover:underline"
+              >
+                Booking history
+              </Link>
+            }
+          >
+            {loading ? (
+              <p className="py-6 text-sm text-gray-500">
+                Loading booking history…
+              </p>
+            ) : bookingError ? (
+              <p className="py-6 text-sm text-red-600">{bookingError}</p>
+            ) : recentBookings.length === 0 ? (
+              <p className="py-8 text-center text-sm text-gray-500">
+                Your bookings will appear here when you book a service.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {recentBookings.map((booking) => {
+                  const statusUpper = String(booking.status ?? "").toUpperCase();
+                  const isCompleted = statusUpper.includes("COMPLETED");
+
+                  return (
+                    <div
+                      key={booking.id}
+                      className="flex items-center justify-between gap-3 border-b border-gray-100 pb-3 last:border-0"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-gray-900">
+                          {booking.service_name || "Service appointment"}
+                        </p>
+                        <p className="mt-1 text-xs text-gray-500">
+                          {dateLabel(booking.start_at)}
+                        </p>
+                      </div>
+
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-700">
+                          {statusLabel(booking.status)}
+                        </span>
+
+                        {isCompleted && (
+                          <Link
+                            href={`/booking?review_booking_id=${booking.id}`}
+                            className="rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-semibold text-brand hover:bg-blue-100"
+                          >
+                            Leave Review
+                          </Link>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Panel>
+        </div>
+
+        {/* Notifications & Quick Actions Panels */}
+        <div className="grid gap-6 xl:grid-cols-2">
+          <Panel
+            title="Notifications"
+            action={
+              <Link
+                href="/notifications"
+                className="text-sm font-medium text-blue-700 hover:underline"
+              >
+                View all
+              </Link>
+            }
+          >
+            {loading ? (
+              <p className="py-5 text-sm text-gray-500">
+                Loading notifications…
+              </p>
+            ) : notificationError ? (
+              <p className="py-5 text-sm text-red-600">{notificationError}</p>
+            ) : data.notifications.length === 0 ? (
+              <p className="py-6 text-center text-sm text-gray-500">
+                You are all caught up. No unread notifications.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {data.notifications.slice(0, 4).map((notification, index) => (
+                  <div
+                    key={notification.id ?? index}
+                    className="rounded-xl bg-gray-50 p-3"
+                  >
+                    <p className="font-medium text-gray-900">
+                      {notification.title || "Account update"}
+                    </p>
+                    <p className="mt-1 text-sm text-gray-600">
+                      {notification.message || "You have a new notification."}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Panel>
+
+          <Panel title="Quick Actions">
+            <div className="grid gap-3 sm:grid-cols-2">
+              {[
+                {
+                  href: "/services",
+                  title: "Explore Services",
+                  description: "Find the right service for you",
+                },
+                {
+                  href: "/booking",
+                  title: "My Bookings",
+                  description: "View or manage appointments",
+                },
+                {
+                  href: "/customer/profile",
+                  title: "Edit Profile",
+                  description: "Update personal information",
+                },
+                {
+                  href: "/notifications",
+                  title: "Notifications",
+                  description: "Check important updates",
+                },
+              ].map((action) => (
+                <Link
+                  key={action.title}
+                  href={action.href}
+                  className="rounded-xl border border-gray-200 p-4 transition hover:border-blue-300 hover:bg-blue-50"
+                >
+                  <p className="font-semibold text-gray-900">
+                    {action.title}
+                  </p>
+                  <p className="mt-1 text-sm text-gray-500">
+                    {action.description}
+                  </p>
+                </Link>
               ))}
             </div>
-          </Card>
-
-          <Card variant="glass" className="p-5">
-            <div className="flex items-center justify-between">
-              <div className="text-lg font-bold leading-6 text-foreground">
-                Weekly bookings
-              </div>
-              <span className="rounded-full bg-success-soft px-3 py-1 text-sm font-semibold text-success">
-                Active
-              </span>
-            </div>
-
-            <div className="mt-2 flex gap-5 text-sm text-muted">
-              <span className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-sidebar" />
-                Confirmed
-              </span>
-              <span className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-secondary/60" />
-                Pending
-              </span>
-            </div>
-
-            <WeeklyChart />
-          </Card>
-
-          <Card variant="default" className="p-5">
-            <div className="flex items-center justify-between">
-              <div className="text-lg font-bold leading-6 text-foreground">
-                Month progress
-              </div>
-            </div>
-
-            <p className="mt-2 text-sm text-muted">
-              <b className="text-base text-foreground">72%</b> of your monthly target
-            </p>
-
-            <div className="mt-5 flex items-center justify-between gap-4">
-              <div>
-                <div className="text-sm font-bold tracking-wide text-foreground">
-                  OVERVIEW
-                </div>
-
-                <ul className="mt-2 space-y-2 text-sm text-muted">
-                  <li className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 rounded-full bg-sidebar" />
-                    Confirmed
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 rounded-full bg-secondary" />
-                    Completed
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 rounded-full bg-line-blue" />
-                    Pending
-                  </li>
-                </ul>
-              </div>
-
-              <div className="relative h-[98px] w-[98px] shrink-0">
-                <svg viewBox="0 0 100 100" className="-rotate-90" aria-hidden="true">
-                  <Ring r={42} pct={0.72} color="var(--sidebar)" />
-                  <Ring r={31} pct={0.55} color="var(--secondary)" />
-                  <Ring r={20} pct={0.3} color="var(--line-blue)" />
-                </svg>
-                <span className="absolute inset-0 flex items-center justify-center text-sm font-bold">
-                  72%
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-5 flex items-center gap-2">
-              <Button
-                variant="primary"
-                size="md"
-                shape="pill"
-                className="h-10 w-10 shrink-0 p-0"
-                aria-label="Share report"
-              >
-                <ArrowIcon />
-              </Button>
-
-              <Button variant="outline" size="md" shape="pill" className="h-10 flex-1">
-                Download report
-              </Button>
-            </div>
-          </Card>
-        </section>
-
-        <UpcomingSchedule
-          bookings={upcomingBookings}
-          viewAllHref="/customer/bookings"
-        />
-
-        <section className="grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">
-          <QuickActions actions={quickActions} />
-
-          <Card variant="glass" className="p-5">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-                  This month
-                </p>
-                <h2 className="mt-1 text-lg font-bold text-foreground">
-                  Personal goals
-                </h2>
-              </div>
-
-              <div className="text-right">
-                <span className="text-xl font-bold text-brand">{completedGoals}</span>
-                <span className="text-sm text-muted">/{goals.length}</span>
-              </div>
-            </div>
-
-            <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-brand-soft">
-              <div
-                className="h-full rounded-full bg-sidebar transition-all duration-300"
-                style={{
-                  width: `${(completedGoals / goals.length) * 100}%`,
-                }}
-              />
-            </div>
-
-            <div className="mt-4 space-y-1">
-              {goals.map((goal, index) => (
-                <button
-                  key={goal.text}
-                  type="button"
-                  onClick={() => toggleGoal(index)}
-                  className="flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left transition-colors hover:bg-white/70 focus-visible:outline-3 focus-visible:outline-secondary"
-                >
-                  <span
-                    className={[
-                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-colors",
-                      goal.done
-                        ? "bg-sidebar text-white"
-                        : "border border-line bg-white text-transparent",
-                    ].join(" ")}
-                  >
-                    <CheckIcon />
-                  </span>
-
-                  <span
-                    className={[
-                      "text-sm",
-                      goal.done ? "font-semibold text-foreground" : "text-muted",
-                    ].join(" ")}
-                  >
-                    {goal.text}
-                  </span>
-                </button>
-              )) }
-            </div>
-          </Card>
-        </section>
-
-        <RecentActivity activity={dashboardActivity} />
+          </Panel>
+        </div>
       </div>
     </DashboardLayout>
   );
