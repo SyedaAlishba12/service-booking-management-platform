@@ -17,7 +17,8 @@ import {
 } from "@/schemas/authSchemas";
 
 import { useAuth } from "@/app/providers/AuthProvider";
-import { getApiErrorMessage } from "@/utils/api_error_handler";
+import { providerProfileApi } from "@/api/provider_profile_api";
+import { getApiErrorMessage, isApiError } from "@/utils/api_error_handler";
 
 function getRoleDashboard(role: string): string | null {
   if (role === "CUSTOMER") return "/customer/dashboard";
@@ -81,13 +82,13 @@ function LoginPageContent() {
     },
   });
 
+ 
   const onSubmit = async (data: LoginFormData) => {
     setServerError("");
     setSubmitting(true);
 
     try {
       const loggedInUser = await login(data.email, data.password);
-
       const dashboard = getRoleDashboard(loggedInUser.role);
 
       if (!dashboard) {
@@ -97,8 +98,25 @@ function LoginPageContent() {
         return;
       }
 
-      // Only honor a requested destination if it is the
-      // dashboard assigned to the authenticated user's role.
+      // New providers must create their business profile first.
+      if (loggedInUser.role === "PROVIDER") {
+        try {
+          await providerProfileApi.getMyProvider();
+        } catch (profileError) {
+          if (
+            isApiError(profileError) &&
+            profileError.status === 404
+          ) {
+            router.replace("/dashboard/providers");
+            return;
+          }
+
+          // Other errors are not proof that the profile is missing.
+          // Let the normal dashboard show its own retry/error state.
+        }
+      }
+
+      // Preserve the existing role-based redirect behavior.
       if (requestedNext === dashboard) {
         router.replace(requestedNext);
       } else {
@@ -115,6 +133,7 @@ function LoginPageContent() {
       setSubmitting(false);
     }
   };
+
 
   return (
     <main className="min-h-screen bg-surface-blue px-4 py-10">
