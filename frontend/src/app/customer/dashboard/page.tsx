@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -6,7 +7,7 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { apiClient } from "@/utils/api_client";
 
-type RecordData = Record<string, any>;
+type RecordData = Record<string, unknown>;
 
 type DashboardState = {
   user: RecordData | null;
@@ -17,42 +18,96 @@ type DashboardState = {
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/customer/dashboard" },
-  { label: "Bookings", href: "/booking" },
-  { label: "Services", href: "/services" },
+  { label: "Book a Service", href: "/booking" },
+  { label: "My Bookings", href: "/bookings" },
+  { label: "Services", href: "/services?view=dashboard" },
+  { label: "Providers", href: "/providers?view=dashboard" },
   { label: "Notifications", href: "/notifications" },
   { label: "Settings", href: "/customer/profile" },
 ];
 
-function asArray(value: any): RecordData[] {
-  if (Array.isArray(value)) return value;
-  if (!value || typeof value !== "object") return [];
+function isRecord(value: unknown): value is RecordData {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
-  for (const key of ["items", "results", "records", "data"]) {
-    if (Array.isArray(value[key])) return value[key];
+function asRecordArray(value: unknown): RecordData[] {
+  if (Array.isArray(value)) {
+    return value.filter(isRecord);
   }
 
-  if (value.data && typeof value.data === "object") {
+  if (!isRecord(value)) return [];
+
+  for (const key of ["items", "results", "records", "data"]) {
+    const candidate = value[key];
+
+    if (Array.isArray(candidate)) {
+      return candidate.filter(isRecord);
+    }
+  }
+
+  const nestedData = value.data;
+
+  if (isRecord(nestedData)) {
     for (const key of ["items", "results", "records"]) {
-      if (Array.isArray(value.data[key])) return value.data[key];
+      const candidate = nestedData[key];
+
+      if (Array.isArray(candidate)) {
+        return candidate.filter(isRecord);
+      }
     }
   }
 
   return [];
 }
 
-function bookingTime(booking: RecordData): number {
-  const value = booking.start_at ?? booking.start_time ?? booking.booking_date;
-  if (!value) return 0;
+function textValue(value: unknown): string {
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
 
-  const timestamp = new Date(value).getTime();
+  return "";
+}
+
+function fieldText(
+  record: RecordData | null,
+  key: string,
+  fallback = "",
+): string {
+  if (!record) return fallback;
+
+  const value = textValue(record[key]);
+  return value || fallback;
+}
+
+function bookingDateValue(booking: RecordData): unknown {
+  return (
+    booking.start_at ??
+    booking.start_time ??
+    booking.booking_date
+  );
+}
+
+function bookingTime(booking: RecordData): number {
+  const value = bookingDateValue(booking);
+
+  if (value === null || value === undefined || value === "") {
+    return 0;
+  }
+
+  const timestamp = new Date(String(value)).getTime();
   return Number.isNaN(timestamp) ? 0 : timestamp;
 }
 
 function dateLabel(value: unknown): string {
-  if (!value) return "Date not available";
+  if (value === null || value === undefined || value === "") {
+    return "Date not available";
+  }
 
   const date = new Date(String(value));
-  if (Number.isNaN(date.getTime())) return "Date not available";
+
+  if (Number.isNaN(date.getTime())) {
+    return "Date not available";
+  }
 
   return date.toLocaleString(undefined, {
     dateStyle: "medium",
@@ -68,9 +123,10 @@ function statusLabel(value: unknown): string {
 }
 
 function isFinished(booking: RecordData): boolean {
-  const status = String(booking.status ?? "").toUpperCase();
+  const status = fieldText(booking, "status").toUpperCase();
+
   return ["CANCELLED", "COMPLETED", "NO_SHOW", "REJECTED"].some(
-    (item) => status.includes(item)
+    (item) => status.includes(item),
   );
 }
 
@@ -103,10 +159,12 @@ export default function CustomerDashboardPage() {
     notifications: [],
     services: [],
   });
+
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState("");
   const [bookingError, setBookingError] = useState("");
   const [notificationError, setNotificationError] = useState("");
+  const [currentTime, setCurrentTime] = useState<number | null>(null);
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
@@ -114,24 +172,33 @@ export default function CustomerDashboardPage() {
     setBookingError("");
     setNotificationError("");
 
-    const [userResult, bookingResult, notificationResult, serviceResult] =
-      await Promise.allSettled([
-        apiClient.get<RecordData>("/api/users/me"),
-        apiClient.get<any>("/api/bookings?page=1&page_size=100"),
-        apiClient.get<any>("/api/notifications/unread"),
-        apiClient.get<any>("/api/services?page=1&page_size=6"),
-      ]);
+    const [
+      userResult,
+      bookingResult,
+      notificationResult,
+      serviceResult,
+    ] = await Promise.allSettled([
+      apiClient.get<unknown>("/api/users/me"),
+      apiClient.get<unknown>("/api/bookings?page=1&page_size=100"),
+      apiClient.get<unknown>("/api/notifications/unread"),
+      apiClient.get<unknown>("/api/services?page=1&page_size=6"),
+    ]);
 
     if (userResult.status === "fulfilled") {
-      setData((previous) => ({ ...previous, user: userResult.value }));
+      setData((previous) => ({
+        ...previous,
+        user: isRecord(userResult.value) ? userResult.value : null,
+      }));
     } else {
-      setPageError("Could not load your profile. Please refresh the page.");
+      setPageError(
+        "Could not load your profile. Please refresh the page.",
+      );
     }
 
     if (bookingResult.status === "fulfilled") {
       setData((previous) => ({
         ...previous,
-        bookings: asArray(bookingResult.value),
+        bookings: asRecordArray(bookingResult.value),
       }));
     } else {
       setBookingError("Bookings could not be loaded right now.");
@@ -140,7 +207,7 @@ export default function CustomerDashboardPage() {
     if (notificationResult.status === "fulfilled") {
       setData((previous) => ({
         ...previous,
-        notifications: asArray(notificationResult.value),
+        notifications: asRecordArray(notificationResult.value),
       }));
     } else {
       setNotificationError("Notifications could not be loaded.");
@@ -149,30 +216,55 @@ export default function CustomerDashboardPage() {
     if (serviceResult.status === "fulfilled") {
       setData((previous) => ({
         ...previous,
-        services: asArray(serviceResult.value),
+        services: asRecordArray(serviceResult.value),
       }));
     }
 
     setLoading(false);
   }, []);
 
+  // Schedule the initial load outside the synchronous effect body.
   useEffect(() => {
-    void loadDashboard();
+    const timer = window.setTimeout(() => {
+      void loadDashboard();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, [loadDashboard]);
 
-  const user = data.user ?? (authUser as RecordData | null);
-  const name = user?.full_name || user?.name || "Customer";
-  const profileImage = user?.profile_image_url;
+  // Capture the current time after mounting, not during rendering.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setCurrentTime(Date.now());
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, []);
+
+  const authRecord = isRecord(authUser) ? authUser : null;
+  const user = data.user ?? authRecord;
+
+  const name =
+    fieldText(user, "full_name") ||
+    fieldText(user, "name") ||
+    "Customer";
+
+  const profileImage = fieldText(user, "profile_image_url");
+  const userEmail = fieldText(user, "email") || undefined;
 
   const sortedBookings = [...data.bookings].sort(
-    (a, b) => bookingTime(b) - bookingTime(a)
+    (a, b) => bookingTime(b) - bookingTime(a),
   );
 
   const upcomingBookings = sortedBookings
     .filter(
       (booking) =>
         !isFinished(booking) &&
-        bookingTime(booking) >= Date.now()
+        (currentTime === null || bookingTime(booking) >= currentTime),
     )
     .sort((a, b) => bookingTime(a) - bookingTime(b));
 
@@ -182,7 +274,7 @@ export default function CustomerDashboardPage() {
     profileImage && profileImage.startsWith("http")
       ? profileImage
       : profileImage
-        ? `${process.env.NEXT_PUBLIC_API_URL}${profileImage}`
+        ? `${process.env.NEXT_PUBLIC_API_URL ?? ""}${profileImage}`
         : "";
 
   return (
@@ -192,7 +284,7 @@ export default function CustomerDashboardPage() {
       title="Customer Dashboard"
       description="Manage your account and appointments"
       userName={name}
-      userEmail={user?.email}
+      userEmail={userEmail}
       notificationCount={data.notifications.length}
     >
       <div className="space-y-6">
@@ -208,29 +300,43 @@ export default function CustomerDashboardPage() {
           </div>
         )}
 
-        {/* Welcome Section - Global Design System Theme Matched */}
+        {/* Welcome Section */}
         <section className="blue-surface overflow-hidden rounded-card p-6 shadow-md sm:p-8">
           <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
             <div>
-              <p className="text-sm font-medium text-text-on-blue/80">Customer Dashboard</p>
+              <p className="text-sm font-medium text-text-on-blue/80">
+                Customer Dashboard
+              </p>
+
               <h1 className="mt-2 text-3xl font-bold tracking-tight text-text-on-blue">
                 Welcome, {name}!
               </h1>
+
               <p className="mt-2 max-w-xl text-sm leading-relaxed text-text-on-blue/90">
-                Find services, manage your appointments, and keep your account up to date.
+                Find services, manage your appointments, and keep your
+                account up to date.
               </p>
+
               <div className="mt-5 flex flex-wrap gap-3">
                 <Link
-                  href="/services"
+                  href="/services?view=dashboard"
                   className="btn-outline rounded-xl bg-surface px-4 py-2.5 text-sm font-semibold text-brand shadow-sm transition hover:bg-brand-soft"
                 >
                   Explore Services
                 </Link>
+
                 <Link
-                  href="/booking"
+                  href="/bookings"
                   className="rounded-xl border border-white/40 bg-white/10 px-4 py-2.5 text-sm font-semibold text-text-on-blue transition hover:bg-white/20"
                 >
                   My Bookings
+                </Link>
+
+                <Link
+                  href="/providers?view=dashboard"
+                  className="rounded-xl border border-white/40 bg-white/10 px-4 py-2.5 text-sm font-semibold text-text-on-blue transition hover:bg-white/20"
+                >
+                  Explore Providers
                 </Link>
               </div>
             </div>
@@ -287,13 +393,13 @@ export default function CustomerDashboardPage() {
           ))}
         </div>
 
-        {/* Upcoming Appointments & Recent Bookings Panels */}
+        {/* Upcoming Appointments & Recent Bookings */}
         <div className="grid gap-6 xl:grid-cols-2">
           <Panel
             title="Upcoming Appointments"
             action={
               <Link
-                href="/booking"
+                href="/bookings"
                 className="text-sm font-medium text-blue-700 hover:underline"
               >
                 View all
@@ -323,7 +429,7 @@ export default function CustomerDashboardPage() {
                   Browse services to plan your next appointment.
                 </p>
                 <Link
-                  href="/services"
+                  href="/services?view=dashboard"
                   className="mt-4 inline-block text-sm font-semibold text-blue-700 hover:underline"
                 >
                   Find a service
@@ -331,22 +437,23 @@ export default function CustomerDashboardPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {upcomingBookings.slice(0, 4).map((booking) => (
+                {upcomingBookings.slice(0, 4).map((booking, index) => (
                   <div
-                    key={booking.id}
+                    key={fieldText(booking, "id") || index}
                     className="flex flex-col justify-between gap-3 rounded-xl border border-gray-100 p-4 sm:flex-row sm:items-center"
                   >
                     <div>
                       <p className="font-semibold text-gray-900">
-                        {booking.service_name || "Service appointment"}
+                        {fieldText(booking, "service_name", "Service appointment")}
                       </p>
                       <p className="mt-1 text-sm text-gray-500">
-                        Provider: {booking.provider_name || "Not specified"}
+                        Provider: {fieldText(booking, "provider_name", "Not specified")}
                       </p>
                       <p className="mt-1 text-sm text-gray-500">
-                        {dateLabel(booking.start_at)}
+                        {dateLabel(bookingDateValue(booking))}
                       </p>
                     </div>
+
                     <span className="w-fit rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
                       {statusLabel(booking.status)}
                     </span>
@@ -360,7 +467,7 @@ export default function CustomerDashboardPage() {
             title="Recent Bookings"
             action={
               <Link
-                href="/booking"
+                href="/bookings"
                 className="text-sm font-medium text-blue-700 hover:underline"
               >
                 Booking history
@@ -379,21 +486,22 @@ export default function CustomerDashboardPage() {
               </p>
             ) : (
               <div className="space-y-3">
-                {recentBookings.map((booking) => {
-                  const statusUpper = String(booking.status ?? "").toUpperCase();
+                {recentBookings.map((booking, index) => {
+                  const statusUpper = fieldText(booking, "status").toUpperCase();
                   const isCompleted = statusUpper.includes("COMPLETED");
+                  const bookingId = fieldText(booking, "id");
 
                   return (
                     <div
-                      key={booking.id}
+                      key={bookingId || index}
                       className="flex items-center justify-between gap-3 border-b border-gray-100 pb-3 last:border-0"
                     >
                       <div className="min-w-0">
                         <p className="truncate font-medium text-gray-900">
-                          {booking.service_name || "Service appointment"}
+                          {fieldText(booking, "service_name", "Service appointment")}
                         </p>
                         <p className="mt-1 text-xs text-gray-500">
-                          {dateLabel(booking.start_at)}
+                          {dateLabel(bookingDateValue(booking))}
                         </p>
                       </div>
 
@@ -402,9 +510,11 @@ export default function CustomerDashboardPage() {
                           {statusLabel(booking.status)}
                         </span>
 
-                        {isCompleted && (
+                        {isCompleted && bookingId && (
                           <Link
-                            href={`/booking?review_booking_id=${booking.id}`}
+                            href={`/booking?review_booking_id=${encodeURIComponent(
+                              bookingId,
+                            )}`}
                             className="rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-semibold text-brand hover:bg-blue-100"
                           >
                             Leave Review
@@ -419,7 +529,7 @@ export default function CustomerDashboardPage() {
           </Panel>
         </div>
 
-        {/* Notifications & Quick Actions Panels */}
+        {/* Notifications & Quick Actions */}
         <div className="grid gap-6 xl:grid-cols-2">
           <Panel
             title="Notifications"
@@ -437,7 +547,9 @@ export default function CustomerDashboardPage() {
                 Loading notifications…
               </p>
             ) : notificationError ? (
-              <p className="py-5 text-sm text-red-600">{notificationError}</p>
+              <p className="py-5 text-sm text-red-600">
+                {notificationError}
+              </p>
             ) : data.notifications.length === 0 ? (
               <p className="py-6 text-center text-sm text-gray-500">
                 You are all caught up. No unread notifications.
@@ -446,14 +558,18 @@ export default function CustomerDashboardPage() {
               <div className="space-y-3">
                 {data.notifications.slice(0, 4).map((notification, index) => (
                   <div
-                    key={notification.id ?? index}
+                    key={fieldText(notification, "id") || index}
                     className="rounded-xl bg-gray-50 p-3"
                   >
                     <p className="font-medium text-gray-900">
-                      {notification.title || "Account update"}
+                      {fieldText(notification, "title", "Account update")}
                     </p>
                     <p className="mt-1 text-sm text-gray-600">
-                      {notification.message || "You have a new notification."}
+                      {fieldText(
+                        notification,
+                        "message",
+                        "You have a new notification.",
+                      )}
                     </p>
                   </div>
                 ))}
@@ -465,12 +581,17 @@ export default function CustomerDashboardPage() {
             <div className="grid gap-3 sm:grid-cols-2">
               {[
                 {
-                  href: "/services",
+                  href: "/services?view=dashboard",
                   title: "Explore Services",
                   description: "Find the right service for you",
                 },
                 {
-                  href: "/booking",
+                  href: "/providers?view=dashboard",
+                  title: "Explore Providers",
+                  description: "View provider profiles and services",
+                },
+                {
+                  href: "/bookings",
                   title: "My Bookings",
                   description: "View or manage appointments",
                 },

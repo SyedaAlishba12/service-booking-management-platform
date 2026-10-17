@@ -1,7 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useEffect } from "react";
+import {
+  usePathname,
+  useRouter,
+  useSearchParams,
+} from "next/navigation";
 
 import LoadingState from "@/components/ui/LoadingState";
 import { useAuth } from "@/app/providers/AuthProvider";
@@ -11,34 +15,32 @@ export default function ProtectedRoute({
 }: {
   children: React.ReactNode;
 }) {
-  const {
-    loading,
-    isAuthenticated,
-  } = useAuth();
+  const { loading, isAuthenticated } = useAuth();
 
   const router = useRouter();
   const pathname = usePathname();
-  const [mounted, setMounted] = useState(false);
+  const searchParams = useSearchParams();
+
+  const queryString = searchParams.toString();
+
+  const currentPath = queryString
+    ? `${pathname}?${queryString}`
+    : pathname;
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (mounted && !loading && !isAuthenticated) {
+    if (!loading && !isAuthenticated) {
       router.replace(
-        `/login?next=${encodeURIComponent(pathname)}`
+        `/login?next=${encodeURIComponent(currentPath)}`
       );
     }
   }, [
-    mounted,
     loading,
     isAuthenticated,
-    pathname,
+    currentPath,
     router,
   ]);
 
-  if (!mounted || loading) {
+  if (loading) {
     return (
       <LoadingState
         message="Checking your session..."

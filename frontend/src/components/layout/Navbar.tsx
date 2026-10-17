@@ -16,15 +16,17 @@ const landingNavLinks = [
   },
 ];
 
+
 const appNavLinks = [
   { label: "Services", href: "/services" },
-  { label: "Providers", href: "/providers" },
-  { label: "Categories", href: "/categories" },
+  { label: "Providers", href: "/landing#providers" },
+  { label: "Categories", href: "/landing#categories" },
   {
     label: "Become a Provider",
-    href: "/become-provider",
+    href: "/landing#become-provider",
   },
 ];
+
 
 function MenuIcon() {
   return (

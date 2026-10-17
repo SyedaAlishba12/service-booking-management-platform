@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { ReactNode } from "react";
@@ -13,6 +14,7 @@ interface DashboardHeaderProps {
   notificationCount?: number;
   actions?: ReactNode;
   onMenuClick?: () => void;
+  showBookNow?: boolean;
 }
 
 const roundBtn =
@@ -75,6 +77,7 @@ export default function DashboardHeader({
   notificationCount = 0,
   actions,
   onMenuClick,
+  showBookNow = false,
 }: DashboardHeaderProps) {
   return (
     <header className="px-4 pb-3 pt-4 sm:px-6 lg:px-8">
@@ -91,19 +94,20 @@ export default function DashboardHeader({
               <MenuIcon />
             </button>
 
-            {/* Optional page-level actions */}
             {actions}
           </div>
 
           {/* Right side */}
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-            <Link
-              href="/services"
-              className="hidden h-10 items-center gap-2 rounded-full bg-sidebar px-5 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-sidebar-hover hover:shadow-md sm:inline-flex"
-            >
-              <span className="text-lg leading-none">+</span>
-              Book now
-            </Link>
+            {showBookNow && (
+              <Link
+                href="/services?view=dashboard"
+                className="hidden h-10 items-center gap-2 rounded-full bg-sidebar px-5 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-sidebar-hover hover:shadow-md sm:inline-flex"
+              >
+                <span className="text-lg leading-none">+</span>
+                Book now
+              </Link>
+            )}
 
             <button
               type="button"

@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -18,7 +19,10 @@ import {
 
 import { useAuth } from "@/app/providers/AuthProvider";
 import { providerProfileApi } from "@/api/provider_profile_api";
-import { getApiErrorMessage, isApiError } from "@/utils/api_error_handler";
+import {
+  getApiErrorMessage,
+  isApiError,
+} from "@/utils/api_error_handler";
 
 function getRoleDashboard(role: string): string | null {
   if (role === "CUSTOMER") return "/customer/dashboard";
@@ -82,7 +86,6 @@ function LoginPageContent() {
     },
   });
 
- 
   const onSubmit = async (data: LoginFormData) => {
     setServerError("");
     setSubmitting(true);
@@ -111,13 +114,22 @@ function LoginPageContent() {
             return;
           }
 
-          // Other errors are not proof that the profile is missing.
-          // Let the normal dashboard show its own retry/error state.
+          // Other errors do not prove that the profile is missing.
+          // Continue with the normal redirect behavior.
         }
       }
 
-      // Preserve the existing role-based redirect behavior.
-      if (requestedNext === dashboard) {
+      // Customers can return to their requested booking page.
+      // Other requested destinations must match their role dashboard.
+      const isCustomerBooking =
+        loggedInUser.role === "CUSTOMER" &&
+        requestedNext !== null &&
+        (
+          requestedNext === "/booking" ||
+          requestedNext.startsWith("/booking?")
+        );
+
+      if (requestedNext === dashboard || isCustomerBooking) {
         router.replace(requestedNext);
       } else {
         router.replace(dashboard);
@@ -133,7 +145,6 @@ function LoginPageContent() {
       setSubmitting(false);
     }
   };
-
 
   return (
     <main className="min-h-screen bg-surface-blue px-4 py-10">
@@ -209,10 +220,14 @@ function LoginPageContent() {
 
                   <button
                     type="button"
-                    onClick={() => setShowPassword((previous) => !previous)}
-                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    onClick={() =>
+                      setShowPassword((previous) => !previous)
+                    }
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
                     aria-pressed={showPassword}
-                    className="absolute right-3 top-[42px] -translate-y-1/2 text-muted transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
+                    className="absolute right-3 top-[42px] -translate-y-1/2 rounded text-muted transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                   >
                     {showPassword ? (
                       <EyeOff size={20} aria-hidden="true" />
