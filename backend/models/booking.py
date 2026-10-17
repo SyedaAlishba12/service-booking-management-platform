@@ -66,6 +66,10 @@ class Payment(Base):
         CheckConstraint("refund_amount IS NULL OR refund_amount >= 0", name="ck_payments_refund_nonnegative"),
         Index("ix_payments_status", "status"),
         Index("ix_payments_created_at", "created_at"),
+        CheckConstraint(
+            "refund_amount IS NULL OR refund_amount <= amount",
+            name="ck_payments_refund_not_over_amount",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

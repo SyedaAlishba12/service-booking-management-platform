@@ -1,7 +1,9 @@
+
 from uuid import UUID
+
 from fastapi import HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.customer import Customer
 from schemas.customer_schema import CustomerResponse, CustomerUpdateRequest
@@ -26,7 +28,9 @@ class CustomerService:
         return self._build_response(customer)
 
     async def update_customer(
-        self, user_id: UUID, data: CustomerUpdateRequest
+        self,
+        user_id: UUID,
+        data: CustomerUpdateRequest,
     ) -> CustomerResponse:
         result = await self.db.execute(
             select(Customer).where(Customer.user_id == user_id)
@@ -39,12 +43,14 @@ class CustomerService:
                 detail="Customer profile not found",
             )
 
-        fields = data.model_fields_set
-        if "preferences" in fields:
-            customer.preferences = data.preferences
-
-        await self.db.commit()
-        await self.db.refresh(customer)
+        if "preferences" in data.model_fields_set:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Customer preferences cannot be saved yet because "
+                    "the current customer model does not store them."
+                ),
+            )
 
         return self._build_response(customer)
 
@@ -53,7 +59,7 @@ class CustomerService:
         return CustomerResponse(
             id=str(customer.id),
             user_id=str(customer.user_id),
-            preferences=customer.preferences,
+            preferences=None,
             created_at=customer.created_at,
             updated_at=customer.updated_at,
         )

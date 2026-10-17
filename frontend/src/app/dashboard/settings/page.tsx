@@ -1,7 +1,5 @@
 "use client";
 
-// TODO: admin routes are unauthenticated until Zainab's auth is merged; api_client must then send the auth header.
-
 import { useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import Table, { Column } from "@/components/ui/Table";
@@ -18,6 +16,19 @@ import { getApiErrorMessage } from "@/utils/api_error_handler";
 import { adminSidebarItems } from "@/constants/admin_sidebar";
 import { useAdminSettings, useUpdateSetting } from "@/hooks/useAdminSettings";
 import type { PlatformSetting } from "@/types/platform_setting";
+import AdminRouteGuard from "@/components/admin/AdminRouteGuard";
+
+const SETTING_LABELS: Record<string, string> = {
+  platform_commission: "Platform Commission",
+  minimum_cancellation_hours: "Minimum Cancellation Hours",
+  minimum_reschedule_hours: "Minimum Reschedule Hours",
+  refund_policy: "Refund Policy",
+  payment_hold_minutes: "Payment Hold Minutes",
+};
+
+function settingLabel(key: string) {
+  return SETTING_LABELS[key] ?? key.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
 
 export default function SettingsPage() {
   const { data: settings = [], isLoading: loading, error: queryError, refetch } = useAdminSettings();
@@ -64,6 +75,17 @@ export default function SettingsPage() {
         }
       }
 
+      const numericValue = Number(editValue);
+      if (editingSetting.key === "platform_commission" && (Number.isNaN(numericValue) || numericValue < 0 || numericValue > 100)) {
+        throw new Error("Platform commission must be between 0 and 100.");
+      }
+      if (["minimum_cancellation_hours", "minimum_reschedule_hours"].includes(editingSetting.key) && (Number.isNaN(numericValue) || numericValue < 0 || !Number.isInteger(numericValue))) {
+        throw new Error("Hours must be a whole number greater than or equal to 0.");
+      }
+      if (editingSetting.key === "payment_hold_minutes" && (Number.isNaN(numericValue) || numericValue < 1 || !Number.isInteger(numericValue))) {
+        throw new Error("Payment hold minutes must be a whole number greater than 0.");
+      }
+
       await updateSetting.mutateAsync({ key: editingSetting.key, payload: { value: editValue } });
       
       setToast({ open: true, variant: "success", message: "Setting updated successfully" });
@@ -85,7 +107,7 @@ export default function SettingsPage() {
       header: "Key",
       render: (setting) => (
         <div>
-          <div className="font-semibold">{setting.key}</div>
+          <div className="font-semibold">{settingLabel(setting.key)}</div>
           {setting.is_public && (
             <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-brand-soft text-brand uppercase tracking-wide">Public</span>
           )}
@@ -171,6 +193,7 @@ export default function SettingsPage() {
   }, {});
 
   return (
+    <AdminRouteGuard>
     <DashboardLayout
       sidebarItems={adminSidebarItems}
       activeHref="/dashboard/settings"
@@ -206,7 +229,7 @@ export default function SettingsPage() {
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Edit Setting">
         <div className="space-y-4">
           <div className="p-4 bg-brand-soft/30 rounded-xl border border-brand-soft">
-            <div className="text-sm font-semibold text-foreground">{editingSetting?.key}</div>
+            <div className="text-sm font-semibold text-foreground">{editingSetting ? settingLabel(editingSetting.key) : ""}</div>
             <div className="text-xs text-muted mt-1">{editingSetting?.description}</div>
           </div>
           
@@ -228,5 +251,6 @@ export default function SettingsPage() {
         />
       </div>
     </DashboardLayout>
+    </AdminRouteGuard>
   );
 }

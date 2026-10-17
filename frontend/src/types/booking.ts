@@ -1,4 +1,9 @@
-export type BookingStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "NO_SHOW";
+export type BookingStatus =
+  | "PENDING"
+  | "CONFIRMED"
+  | "CANCELLED"
+  | "COMPLETED"
+  | "NO_SHOW";
 
 export interface Booking {
   id: string;
@@ -51,7 +56,12 @@ export interface Slot {
 
 export interface Page<T> {
   items: T[];
-  meta: { page: number; page_size: number; total: number; total_pages: number };
+  meta: {
+    page: number;
+    page_size: number;
+    total: number;
+    total_pages: number;
+  };
 }
 
 export interface Payment {

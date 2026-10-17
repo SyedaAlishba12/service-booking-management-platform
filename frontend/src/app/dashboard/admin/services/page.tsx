@@ -1,7 +1,5 @@
 "use client";
 
-// TODO: admin routes are unauthenticated until Zainab's auth is merged; api_client must then send the auth header.
-
 import { useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import Table, { Column } from "@/components/ui/Table";

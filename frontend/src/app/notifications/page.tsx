@@ -2,88 +2,115 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { apiClient } from "@/utils/api_client";
 import LoadingState from "@/components/ui/LoadingState";
 import Alert from "@/components/ui/Alert";
 import { Card } from "@/components/ui/Card";
-import { Check, Trash2, CheckCheck, ArrowLeft } from "lucide-react";
+import { ArrowLeft, Check, CheckCheck, Trash2 } from "lucide-react";
+
+interface NotificationItem {
+  id: string;
+  title: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+}
 
 function NotificationsContent() {
   const { user } = useAuth();
-  const router = useRouter();
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const fetchAllNotifications = async () => {
-    try {
-      setLoading(true);
-      setError("");
-      const res: any = await apiClient.get("/api/notifications");
-      // Backend ke {"success": true, "data": [...]} format ko extract karne ke liye:
-      const notificationList = res?.data || res || [];
-      setNotifications(Array.isArray(notificationList) ? notificationList : []);
-    } catch {
-      setError("Unable to load notifications.");
-    } finally {
-      setLoading(false);
-    }
-  };
   useEffect(() => {
-    void fetchAllNotifications();
+    let active = true;
+
+    async function loadNotifications() {
+      try {
+        const result =
+          await apiClient.get<NotificationItem[]>("/api/notifications");
+
+        if (!active) return;
+
+        setNotifications(Array.isArray(result) ? result : []);
+        setError("");
+      } catch {
+        if (active) setError("Unable to load notifications.");
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    void loadNotifications();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
-  const markAsRead = async (id: string) => {
+  async function markAsRead(id: string) {
     try {
       await apiClient.put(`/api/notifications/${id}/read`);
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
+      setNotifications((current) =>
+        current.map((item) =>
+          item.id === id ? { ...item, is_read: true } : item
+        )
       );
-    } catch {}
-  };
+    } catch {
+      setError("Unable to mark the notification as read.");
+    }
+  }
 
-  const markAllAsRead = async () => {
+  async function markAllAsRead() {
     try {
       await apiClient.put("/api/notifications/read-all");
-      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
-    } catch {}
-  };
+      setNotifications((current) =>
+        current.map((item) => ({ ...item, is_read: true }))
+      );
+    } catch {
+      setError("Unable to mark notifications as read.");
+    }
+  }
 
-  const deleteNotification = async (id: string) => {
+  async function deleteNotification(id: string) {
     try {
       await apiClient.delete(`/api/notifications/${id}`);
-      setNotifications((prev) => prev.filter((n) => n.id !== id));
-    } catch {}
-  };
+      setNotifications((current) =>
+        current.filter((item) => item.id !== id)
+      );
+    } catch {
+      setError("Unable to delete the notification.");
+    }
+  }
 
-  // Determine dashboard route based on user role
   const dashboardHref =
     user?.role === "PROVIDER" ? "/provider/dashboard" : "/customer/dashboard";
 
   return (
     <div className="min-h-screen bg-surface-blue px-4 py-8 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-4xl space-y-6">
-        {/* Top Back Navigation & Header */}
         <div className="flex items-center justify-between">
           <Link
             href={dashboardHref}
-            className="inline-flex items-center gap-2 text-sm font-semibold text-brand hover:underline transition-colors"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-brand transition-colors hover:underline"
           >
-            <ArrowLeft size={18} /> Back to Dashboard
+            <ArrowLeft size={18} />
+            Back to Dashboard
           </Link>
 
           <button
-            onClick={markAllAsRead}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-brand-soft px-4 py-2 text-xs font-semibold text-brand hover:bg-brand hover:text-white transition-colors"
+            type="button"
+            onClick={() => void markAllAsRead()}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-brand-soft px-4 py-2 text-xs font-semibold text-brand transition-colors hover:bg-brand hover:text-white"
           >
-            <CheckCheck size={16} /> Mark all as read
+            <CheckCheck size={16} />
+            Mark all as read
           </button>
         </div>
 
-        <div className="rounded-3xl bg-surface p-6 sm:p-8 shadow-[0_12px_40px_rgba(8,45,110,0.06)]">
+        <div className="rounded-3xl bg-surface p-6 shadow-[0_12px_40px_rgba(8,45,110,0.06)] sm:p-8">
           <h1 className="text-2xl font-bold text-foreground">Notifications</h1>
           <p className="mt-1 text-sm text-muted">
             View, read, and manage your activity alerts and updates.
@@ -100,44 +127,50 @@ function NotificationsContent() {
           </Card>
         ) : (
           <div className="space-y-3">
-            {notifications.map((n) => (
+            {notifications.map((item) => (
               <Card
-                key={n.id}
-                className={`p-5 flex items-start justify-between gap-4 transition-all ${
-                  n.is_read
+                key={item.id}
+                className={`flex items-start justify-between gap-4 p-5 transition-all ${
+                  item.is_read
                     ? "bg-surface opacity-80"
-                    : "bg-surface border-l-4 border-l-brand shadow-sm"
+                    : "border-l-4 border-l-brand bg-surface shadow-sm"
                 }`}
               >
                 <div>
                   <div className="flex items-center gap-2">
-                    <p className="font-semibold text-foreground">{n.title}</p>
-                    {!n.is_read && (
+                    <p className="font-semibold text-foreground">
+                      {item.title}
+                    </p>
+                    {!item.is_read && (
                       <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-bold text-brand">
                         New
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-muted mt-1">{n.message}</p>
-                  <span className="text-xs text-muted/70 mt-2 block">
-                    {new Date(n.created_at).toLocaleString()}
+                  <p className="mt-1 text-sm text-muted">{item.message}</p>
+                  <span className="mt-2 block text-xs text-muted/70">
+                    {new Date(item.created_at).toLocaleString()}
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
-                  {!n.is_read && (
+                <div className="flex shrink-0 items-center gap-2">
+                  {!item.is_read && (
                     <button
-                      onClick={() => markAsRead(n.id)}
-                      className="rounded-lg border border-line p-2 text-muted hover:bg-surface-blue hover:text-foreground transition-colors"
+                      type="button"
+                      onClick={() => void markAsRead(item.id)}
+                      className="rounded-lg border border-line p-2 text-muted transition-colors hover:bg-surface-blue hover:text-foreground"
                       title="Mark as read"
+                      aria-label="Mark notification as read"
                     >
                       <Check size={16} />
                     </button>
                   )}
                   <button
-                    onClick={() => deleteNotification(n.id)}
-                    className="rounded-lg border border-line p-2 text-red-500 hover:bg-red-50 transition-colors"
+                    type="button"
+                    onClick={() => void deleteNotification(item.id)}
+                    className="rounded-lg border border-line p-2 text-red-500 transition-colors hover:bg-red-50"
                     title="Delete notification"
+                    aria-label="Delete notification"
                   >
                     <Trash2 size={16} />
                   </button>

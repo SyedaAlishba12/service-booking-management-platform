@@ -115,13 +115,22 @@ function Icon({
   );
 }
 
+
 const iconMap: Record<string, Parameters<typeof Icon>[0]["type"]> = {
   Dashboard: "dashboard",
+  "Admin overview": "dashboard",
   Calendar: "calendar",
   Bookings: "booking",
+  "Booking management": "booking",
   Services: "service",
+  "Service management": "service",
   Providers: "provider",
+  "Provider approvals": "provider",
+  "User management": "provider",
+  Users: "provider",
   Reviews: "review",
+  Complaints: "review",
+  Reports: "booking",
   Categories: "category",
   Settings: "settings",
 };
@@ -132,30 +141,27 @@ export default function Sidebar({
   isOpen,
   onClose,
 }: SidebarProps) {
-  const { user, loading } = useAuth();
+const { user, loading } = useAuth();
+const settingsItem = items.find((item) => item.label === "Settings");
 
-  const workspaceLabels = [
-    "Dashboard",
-    "Calendar",
-    "Bookings",
-    "Earnings",
-    "Customers",
-    "Services",
-    "Providers",
-  ];
+const workspaceLabels = new Set([
+  "Dashboard",
+  "Calendar",
+  "Bookings",
+  "Earnings",
+  "Customers",
+  "Services",
+  "Providers",
+]);
 
-  const manageLabels = ["Reviews", "Categories"];
+const workspaceItems = items.filter((item) =>
+  workspaceLabels.has(item.label)
+);
 
-  const workspaceItems = items.filter((item) =>
-    workspaceLabels.includes(item.label)
-  );
-
-  const manageItems = items.filter((item) =>
-    manageLabels.includes(item.label)
-  );
-
-  const settingsItem = items.find((item) => item.label === "Settings");
-
+const manageItems = items.filter(
+  (item) =>
+    !workspaceLabels.has(item.label) && item.label !== "Settings"
+);
   const renderItem = (item: SidebarItem) => {
     const active = item.href === activeHref;
 

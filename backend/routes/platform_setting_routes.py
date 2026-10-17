@@ -26,7 +26,7 @@ from schemas.platform_setting import SettingDetailResponse, SettingListResponse,
 public_router = APIRouter(prefix="/api/settings", tags=["settings"])
 
 
-@public_router.get("/public", response_model=SettingListResponse)
+@public_router.get("/public", response_model=SettingListResponse, summary="List public settings")
 async def list_public_settings(db: AsyncSession = Depends(get_db)):
     return await ctrl.list_public_settings(db)
 
@@ -43,17 +43,17 @@ admin_router = APIRouter(
 )
 
 
-@admin_router.get("", response_model=SettingListResponse)
+@admin_router.get("", response_model=SettingListResponse, summary="List all settings (admin)")
 async def list_all_settings(db: AsyncSession = Depends(get_db)):
     return await ctrl.list_all_settings(db)
 
 
-@admin_router.get("/{key}", response_model=SettingDetailResponse)
+@admin_router.get("/{key}", response_model=SettingDetailResponse, summary="Get a setting (admin)")
 async def get_setting(key: str, db: AsyncSession = Depends(get_db)):
     return await ctrl.get_setting(db, key)
 
 
-@admin_router.put("/{key}", response_model=SettingDetailResponse)
+@admin_router.put("/{key}", response_model=SettingDetailResponse, summary="Update a setting (admin)")
 async def update_setting(
     key: str, payload: SettingUpdate, db: AsyncSession = Depends(get_db)
 ):

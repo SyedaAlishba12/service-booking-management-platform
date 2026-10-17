@@ -1,7 +1,5 @@
 "use client";
 
-// TODO: admin routes are unauthenticated until Zainab's auth is merged; api_client must then send the auth header.
-
 import { useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import Table, { Column } from "@/components/ui/Table";
@@ -49,7 +47,7 @@ export default function ProvidersPage() {
   });
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogAction, setDialogAction] = useState<{ id: string; type: "Suspend" | "Deactivate" } | null>(null);
+  const [dialogAction, setDialogAction] = useState<{ id: string; type: "Approve" | "Suspend" | "Activate" | "Deactivate" } | null>(null);
 
   const providers = data?.items || [];
   const meta = data?.meta;
@@ -87,8 +85,12 @@ export default function ProvidersPage() {
   const handleConfirmDialog = async () => {
     if (!dialogAction) return;
     
-    if (dialogAction.type === "Suspend") {
+    if (dialogAction.type === "Approve") {
+      await executeAction(dialogAction.id, { status: "APPROVED" }, "Provider approved successfully");
+    } else if (dialogAction.type === "Suspend") {
       await executeAction(dialogAction.id, { status: "SUSPENDED" }, "Provider suspended successfully");
+    } else if (dialogAction.type === "Activate") {
+      await executeAction(dialogAction.id, { is_active: true }, "Provider activated successfully");
     } else if (dialogAction.type === "Deactivate") {
       await executeAction(dialogAction.id, { is_active: false }, "Provider deactivated successfully");
     }
@@ -158,7 +160,7 @@ export default function ProvidersPage() {
             <Button
               variant="primary"
               size="sm"
-              onClick={() => executeAction(p.id, { status: "APPROVED" }, "Provider approved successfully")}
+              onClick={() => { setDialogAction({ id: p.id, type: "Approve" }); setDialogOpen(true); }}
               disabled={updateProviderStatus.isPending}
             >
               Approve
@@ -178,7 +180,7 @@ export default function ProvidersPage() {
             <Button
               variant="primary"
               size="sm"
-              onClick={() => executeAction(p.id, { status: "APPROVED" }, "Provider restored successfully")}
+              onClick={() => { setDialogAction({ id: p.id, type: "Approve" }); setDialogOpen(true); }}
               disabled={updateProviderStatus.isPending}
             >
               Approve
@@ -197,7 +199,7 @@ export default function ProvidersPage() {
             <Button
               variant="primary"
               size="sm"
-              onClick={() => executeAction(p.id, { is_active: true }, "Provider activated successfully")}
+              onClick={() => { setDialogAction({ id: p.id, type: "Activate" }); setDialogOpen(true); }}
               disabled={updateProviderStatus.isPending}
             >
               Activate
@@ -290,10 +292,10 @@ export default function ProvidersPage() {
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
         onConfirm={handleConfirmDialog}
-        title={dialogAction?.type === "Suspend" ? "Suspend Provider" : "Deactivate Provider"}
+        title={`${dialogAction?.type ?? "Update"} Provider`}
         description={`Are you sure you want to ${dialogAction?.type?.toLowerCase()} this provider?`}
         variant="danger"
-        confirmText={dialogAction?.type === "Suspend" ? "Suspend" : "Deactivate"}
+        confirmText={dialogAction?.type ?? "Confirm"}
         loading={updateProviderStatus.isPending}
       />
 

@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import repositories.complaint_repository as repo
 from models.complaint import Complaint, ComplaintStatus, ComplaintType
 from schemas.complaint import ComplaintAdminUpdate, ComplaintCreate
+from services.notification_integration import notify
 
 
 class ComplaintNotFoundError(Exception):
@@ -37,8 +38,14 @@ async def create_complaint(
     user_id: uuid.UUID,
     payload: ComplaintCreate,
 ) -> Complaint:
-    # TODO: verify the booking belongs to this user via Sayeel's booking service
-    # TODO: call Zainab's notify() when status changes (ask her about complaint event)
+    if payload.booking_id is not None:
+        participants = await repo.get_booking_participants(db, payload.booking_id)
+        if participants is None:
+            raise ComplaintNotFoundError("Booking not found")
+        if user_id not in participants:
+            raise ComplaintForbiddenError(
+                "You can only file a complaint for your own booking"
+            )
     
     complaint = Complaint(
         user_id=user_id,
@@ -159,8 +166,21 @@ async def update_complaint_status(
     await repo.apply_updates(db, complaint, updates)
     await db.commit()
     await db.refresh(complaint)
-    
-    # TODO: call Zainab's notify() when status changes
+
+    try:
+        async with db.begin_nested():
+            await notify(
+                db,
+                user_id=complaint.user_id,
+                notification_type="PROVIDER_UPDATE",
+                title="Complaint updated",
+                message=f"Your complaint status is now {new_status.value}.",
+                entity_type="complaint",
+                entity_id=complaint.id,
+            )
+        await db.commit()
+    except Exception:
+        pass
 
     return complaint
 

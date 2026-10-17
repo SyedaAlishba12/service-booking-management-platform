@@ -34,12 +34,12 @@ from schemas.category import (
 public_router = APIRouter(prefix="/api/categories", tags=["categories"])
 
 
-@public_router.get("", response_model=CategoryListResponse)
+@public_router.get("", response_model=CategoryListResponse, summary="List active categories")
 async def list_active_categories(db: AsyncSession = Depends(get_db)):
     return await ctrl.list_active_categories(db)
 
 
-@public_router.get("/{id}", response_model=CategoryDetailResponse)
+@public_router.get("/{id}", response_model=CategoryDetailResponse, summary="Get an active category")
 async def get_active_category(id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     return await ctrl.get_active_category(db, id)
 
@@ -56,23 +56,23 @@ admin_router = APIRouter(
 )
 
 
-@admin_router.get("", response_model=CategoryListResponse)
+@admin_router.get("", response_model=CategoryListResponse, summary="List all categories (admin)")
 async def list_all_categories(db: AsyncSession = Depends(get_db)):
     return await ctrl.list_all_categories(db)
 
 
-@admin_router.post("", response_model=CategoryDetailResponse, status_code=201)
+@admin_router.post("", response_model=CategoryDetailResponse, status_code=201, summary="Create a category (admin)")
 async def create_category(payload: CategoryCreate, db: AsyncSession = Depends(get_db)):
     return await ctrl.create_category(db, payload)
 
 
-@admin_router.put("/{id}", response_model=CategoryDetailResponse)
+@admin_router.put("/{id}", response_model=CategoryDetailResponse, summary="Update a category (admin)")
 async def update_category(
     id: uuid.UUID, payload: CategoryUpdate, db: AsyncSession = Depends(get_db)
 ):
     return await ctrl.update_category(db, id, payload)
 
 
-@admin_router.delete("/{id}", response_model=CategoryDetailResponse)
+@admin_router.delete("/{id}", response_model=CategoryDetailResponse, summary="Deactivate a category (admin)")
 async def deactivate_category(id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     return await ctrl.deactivate_category(db, id)
