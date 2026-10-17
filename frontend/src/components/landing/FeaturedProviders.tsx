@@ -104,7 +104,15 @@ function LocationIcon() {
   );
 }
 
-export default function FeaturedProviders() {
+interface FeaturedProvidersProps {
+  fullPage?: boolean;
+  dashboardView?: boolean;
+}
+
+export default function FeaturedProviders({
+  fullPage = false,
+  dashboardView = false,
+}: FeaturedProvidersProps) {
   const [providers, setProviders] = useState<ProviderCardData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -211,7 +219,7 @@ export default function FeaturedProviders() {
             </p>
 
             <h2 className="mt-2 text-2xl sm:text-3xl">
-              Featured providers
+             {fullPage ? "Explore our providers" : "Featured providers"}
             </h2>
 
             <p className="mt-2 text-sm leading-6 text-muted">
@@ -221,7 +229,7 @@ export default function FeaturedProviders() {
           </div>
 
           <Link
-            href="/services"
+           href={dashboardView ? "/services?view=dashboard" : "/services"}
             className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand transition-colors hover:text-secondary"
           >
             Browse services
@@ -275,7 +283,7 @@ export default function FeaturedProviders() {
 
         {!loading && !error && providers.length > 0 && (
           <div className="mt-7 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {providers.slice(0, 6).map((provider) => {
+           {providers.slice(0, fullPage ? 12 : 6).map((provider) => {
               const lowestPrice = provider.services.reduce<number | null>(
                 (lowest, service) => {
                   const price = Number(service.price);
@@ -398,14 +406,18 @@ export default function FeaturedProviders() {
 
                   <div className="mt-auto flex gap-2 pt-5">
                     <Link
-                      href={`/providers/${provider.id}`}
+                     href={`/providers/${provider.id}${
+  dashboardView ? "?view=dashboard" : ""
+}`}
                       className="btn-primary inline-flex flex-1 items-center justify-center rounded-xl px-3 py-2.5 text-sm font-semibold"
                     >
                       View profile
                     </Link>
 
                     <Link
-                      href={`/services?q=${encodeURIComponent(provider.business_name)}`}
+                      href={`/services?q=${encodeURIComponent(provider.business_name)}${
+  dashboardView ? "&view=dashboard" : ""
+}`}
                       className="inline-flex flex-1 items-center justify-center rounded-xl border border-line px-3 py-2.5 text-sm font-semibold transition hover:border-brand hover:text-brand"
                     >
                       View services

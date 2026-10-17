@@ -25,7 +25,7 @@ from models.user import User
 
 admin_router = APIRouter(prefix="/api/admin", tags=["Admin"], dependencies=[Depends(require_admin)])
 
-@admin_router.get("/providers", response_model=ApiResponse[PaginatedData[ProviderResponse]])
+@admin_router.get("/providers", response_model=ApiResponse[PaginatedData[ProviderResponse]], summary="List providers (admin)")
 async def list_providers(
     status: ProviderStatus | None = None,
     is_active: bool | None = None,
@@ -36,15 +36,15 @@ async def list_providers(
 ):
     return await ctrl.list_providers(db, status, is_active, q, page, page_size)
 
-@admin_router.get("/providers/{id}", response_model=ApiResponse[ProviderResponse])
+@admin_router.get("/providers/{id}", response_model=ApiResponse[ProviderResponse], summary="Get provider details (admin)")
 async def get_provider(id: UUID, db: AsyncSession = Depends(get_db)):
     return await ctrl.get_provider(db, id)
 
-@admin_router.put("/providers/{id}/status", response_model=ApiResponse[ProviderResponse])
+@admin_router.put("/providers/{id}/status", response_model=ApiResponse[ProviderResponse], summary="Update provider status (admin)")
 async def update_provider_status(id: UUID, payload: ProviderStatusUpdate, db: AsyncSession = Depends(get_db)):
     return await ctrl.update_provider_status(db, id, payload)
 
-@admin_router.get("/services", response_model=ApiResponse[PaginatedData[ServiceResponse]])
+@admin_router.get("/services", response_model=ApiResponse[PaginatedData[ServiceResponse]], summary="List services (admin)")
 async def list_services(
     category_id: UUID | None = None,
     provider_id: UUID | None = None,
@@ -56,11 +56,11 @@ async def list_services(
 ):
     return await ctrl.list_services(db, category_id, provider_id, is_active, q, page, page_size)
 
-@admin_router.get("/services/{id}", response_model=ApiResponse[ServiceResponse])
+@admin_router.get("/services/{id}", response_model=ApiResponse[ServiceResponse], summary="Get service details (admin)")
 async def get_service(id: UUID, db: AsyncSession = Depends(get_db)):
     return await ctrl.get_service(db, id)
 
-@admin_router.put("/services/{id}/active", response_model=ApiResponse[ServiceResponse])
+@admin_router.put("/services/{id}/active", response_model=ApiResponse[ServiceResponse], summary="Update service active status (admin)")
 async def set_service_active(id: UUID, payload: ServiceActiveUpdate, db: AsyncSession = Depends(get_db)):
     return await ctrl.set_service_active(db, id, payload)
 

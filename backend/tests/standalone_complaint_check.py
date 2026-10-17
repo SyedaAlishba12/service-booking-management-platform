@@ -7,7 +7,7 @@ import sys
 import traceback
 import uuid
 
-from sqlalchemy import Column, Table
+from sqlalchemy import Column, Table, insert
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.exc import IntegrityError
@@ -18,13 +18,30 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from database.base import Base
 from models.complaint import Complaint, ComplaintStatus, ComplaintType
 
-for _table_name in ("users", "bookings", "providers"):
-    if _table_name not in Base.metadata.tables:
-        Table(
-            _table_name,
-            Base.metadata,
-            Column("id", PG_UUID(as_uuid=True), primary_key=True),
-        )
+if "users" not in Base.metadata.tables:
+    Table("users", Base.metadata, Column("id", PG_UUID(as_uuid=True), primary_key=True))
+if "bookings" not in Base.metadata.tables:
+    Table(
+        "bookings",
+        Base.metadata,
+        Column("id", PG_UUID(as_uuid=True), primary_key=True),
+        Column("customer_id", PG_UUID(as_uuid=True), nullable=False),
+        Column("provider_id", PG_UUID(as_uuid=True), nullable=False),
+    )
+if "customers" not in Base.metadata.tables:
+    Table(
+        "customers",
+        Base.metadata,
+        Column("id", PG_UUID(as_uuid=True), primary_key=True),
+        Column("user_id", PG_UUID(as_uuid=True), nullable=False),
+    )
+if "providers" not in Base.metadata.tables:
+    Table(
+        "providers",
+        Base.metadata,
+        Column("id", PG_UUID(as_uuid=True), primary_key=True),
+        Column("user_id", PG_UUID(as_uuid=True), nullable=False),
+    )
 
 import services.complaint_service as svc
 from schemas.complaint import ComplaintAdminUpdate, ComplaintCreate
@@ -65,6 +82,10 @@ USER_2 = uuid.uuid4()
 ADMIN_1 = uuid.uuid4()
 BOOKING_1 = uuid.uuid4()
 PROVIDER_1 = uuid.uuid4()
+CUSTOMER_PROFILE_1 = uuid.uuid4()
+CUSTOMER_PROFILE_2 = uuid.uuid4()
+PROVIDER_PROFILE_1 = uuid.uuid4()
+BOOKING_2 = uuid.uuid4()
 
 async def test_create_success_status_open(db: AsyncSession):
     label = "create success sets status OPEN and null resolved fields"
@@ -100,6 +121,139 @@ async def test_schema_platform_needs_neither(db: AsyncSession):
     comp = ComplaintCreate(complaint_type=ComplaintType.PLATFORM, subject="Sub", description="Desc")
     assert comp.booking_id is None
     assert comp.provider_id is None
+    ok(label)
+
+async def test_booking_ownership_and_optional_booking(db: AsyncSession):
+    label = "booking complaints accept customer, provider, reject others, and allow optional booking"
+    tables = Base.metadata.tables
+    await db.execute(insert(tables["customers"]).values(id=CUSTOMER_PROFILE_1, user_id=USER_1))
+    await db.execute(insert(tables["customers"]).values(id=CUSTOMER_PROFILE_2, user_id=USER_2))
+    await db.execute(insert(tables["providers"]).values(id=PROVIDER_PROFILE_1, user_id=ADMIN_1))
+    await db.execute(insert(tables["bookings"]).values(
+        id=BOOKING_1,
+        customer_id=CUSTOMER_PROFILE_1,
+        provider_id=PROVIDER_PROFILE_1,
+    ))
+    await db.commit()
+
+    customer_complaint = await svc.create_complaint(
+        db,
+        USER_1,
+        ComplaintCreate(
+            complaint_type=ComplaintType.BOOKING,
+            booking_id=BOOKING_1,
+            subject="Customer issue",
+            description="Customer complaint",
+        ),
+    )
+    assert customer_complaint.booking_id == BOOKING_1
+
+    provider_complaint = await svc.create_complaint(
+        db,
+        ADMIN_1,
+        ComplaintCreate(
+            complaint_type=ComplaintType.BOOKING,
+            booking_id=BOOKING_1,
+            subject="Provider issue",
+            description="Provider complaint",
+        ),
+    )
+    assert provider_complaint.booking_id == BOOKING_1
+
+    try:
+        await svc.create_complaint(
+            db,
+            USER_2,
+            ComplaintCreate(
+                complaint_type=ComplaintType.BOOKING,
+                booking_id=BOOKING_1,
+                subject="Unauthorized",
+                description="Not my booking",
+            ),
+        )
+        fail(label, "Expected ComplaintForbiddenError")
+        return
+    except svc.ComplaintForbiddenError:
+        pass
+
+    try:
+        await svc.create_complaint(
+            db,
+            USER_1,
+            ComplaintCreate(
+                complaint_type=ComplaintType.BOOKING,
+                booking_id=BOOKING_2,
+                subject="Unknown",
+                description="Missing booking",
+            ),
+        )
+        fail(label, "Expected ComplaintNotFoundError")
+        return
+    except svc.ComplaintNotFoundError:
+        pass
+
+    optional = await svc.create_complaint(
+        db,
+        USER_1,
+        ComplaintCreate(
+            complaint_type=ComplaintType.OTHER,
+            subject="No booking",
+            description="Optional booking reference",
+        ),
+    )
+    assert optional.booking_id is None
+    ok(label)
+
+
+async def test_status_notification_is_best_effort(db: AsyncSession):
+    label = "status change notifies complainant and ignores notification failure"
+    original_notify = svc.notify
+    calls = []
+
+    async def fake_notify(*args, **kwargs):
+        calls.append(kwargs)
+
+    svc.notify = fake_notify
+    try:
+        complaint = await svc.create_complaint(
+            db,
+            USER_1,
+            ComplaintCreate(
+                complaint_type=ComplaintType.PLATFORM,
+                subject="Notify me",
+                description="Status update",
+            ),
+        )
+        updated = await svc.update_complaint_status(
+            db,
+            complaint.id,
+            ComplaintAdminUpdate(
+                status=ComplaintStatus.IN_REVIEW,
+                admin_response="Reviewing",
+            ),
+            ADMIN_1,
+        )
+        assert updated.status == ComplaintStatus.IN_REVIEW
+        assert len(calls) == 1
+        assert calls[0]["user_id"] == USER_1
+        assert calls[0]["notification_type"] == "PROVIDER_UPDATE"
+
+        async def failing_notify(*args, **kwargs):
+            raise RuntimeError("notification unavailable")
+
+        svc.notify = failing_notify
+        resolved = await svc.update_complaint_status(
+            db,
+            complaint.id,
+            ComplaintAdminUpdate(
+                status=ComplaintStatus.RESOLVED,
+                admin_response="Resolved",
+            ),
+            ADMIN_1,
+        )
+        assert resolved.status == ComplaintStatus.RESOLVED
+    finally:
+        svc.notify = original_notify
     ok(label)
 
 async def test_subject_empty_rejected(db: AsyncSession):
@@ -296,10 +450,12 @@ TESTS = [
     test_schema_rejects_provider_without_id,
     test_schema_platform_needs_neither,
     test_subject_empty_rejected,
+    test_booking_ownership_and_optional_booking,
     test_owner_can_read_own,
     test_reading_someone_else_forbidden,
     test_my_list_returns_only_mine,
     test_admin_list_filters,
+    test_status_notification_is_best_effort,
     test_open_to_in_review,
     test_in_review_to_resolved,
     test_resolved_to_in_review_rejected,

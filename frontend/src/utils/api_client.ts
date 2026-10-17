@@ -1,4 +1,3 @@
-
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 interface ApiResponse<T> {
@@ -24,15 +23,29 @@ class ApiError extends Error {
   }
 }
 
-let accessToken: string | null = null;
 let refreshPromise: Promise<string | null> | null = null;
 
+// Helper to safely access localStorage on the client side
+function getStoredToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("access_token");
+}
+
+function setStoredToken(token: string | null): void {
+  if (typeof window === "undefined") return;
+  if (token) {
+    localStorage.setItem("access_token", token);
+  } else {
+    localStorage.removeItem("access_token");
+  }
+}
+
 export function setAccessToken(token: string | null): void {
-  accessToken = token;
+  setStoredToken(token);
 }
 
 export function getAccessToken(): string | null {
-  return accessToken;
+  return getStoredToken();
 }
 
 async function refreshAccessToken(): Promise<string | null> {
@@ -60,7 +73,7 @@ async function refreshAccessToken(): Promise<string | null> {
       );
 
       if (!response.ok) {
-        accessToken = null;
+        setStoredToken(null);
         return null;
       }
 
@@ -71,15 +84,16 @@ async function refreshAccessToken(): Promise<string | null> {
       }> = await response.json();
 
       if (!body.success || !body.data?.access_token) {
-        accessToken = null;
+        setStoredToken(null);
         return null;
       }
 
-      accessToken = body.data.access_token;
+      const newToken = body.data.access_token;
+      setStoredToken(newToken);
 
-      return accessToken;
+      return newToken;
     } catch {
-      accessToken = null;
+      setStoredToken(null);
       return null;
     } finally {
       refreshPromise = null;
@@ -141,8 +155,9 @@ async function request<T>(
     headers.set("Content-Type", "application/json");
   }
 
-  if (accessToken) {
-    headers.set("Authorization", `Bearer ${accessToken}`);
+  const currentToken = getStoredToken();
+  if (currentToken) {
+    headers.set("Authorization", `Bearer ${currentToken}`);
   }
 
   const response = await fetch(

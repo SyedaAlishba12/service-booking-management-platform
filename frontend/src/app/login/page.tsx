@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -17,10 +18,14 @@ import {
 } from "@/schemas/authSchemas";
 
 import { useAuth } from "@/app/providers/AuthProvider";
-import { getApiErrorMessage } from "@/utils/api_error_handler";
+import { providerProfileApi } from "@/api/provider_profile_api";
+import {
+  getApiErrorMessage,
+  isApiError,
+} from "@/utils/api_error_handler";
 
 function getRoleDashboard(role: string): string | null {
-  if (role === "CUSTOMER") return "/dashboard";
+  if (role === "CUSTOMER") return "/customer/dashboard";
   if (role === "PROVIDER") return "/provider/dashboard";
   if (role === "ADMIN") return "/dashboard/admin";
 
@@ -87,7 +92,6 @@ function LoginPageContent() {
 
     try {
       const loggedInUser = await login(data.email, data.password);
-
       const dashboard = getRoleDashboard(loggedInUser.role);
 
       if (!dashboard) {
@@ -97,23 +101,39 @@ function LoginPageContent() {
         return;
       }
 
-      // Only honor a requested destination if it is the
-      // dashboard assigned to the authenticated user's role.
-     // Customers can return to their requested booking page.
-// Other requested destinations must match the user's dashboard.
-const isCustomerBooking =
-  loggedInUser.role === "CUSTOMER" &&
-  requestedNext !== null &&
-  (
-    requestedNext === "/booking" ||
-    requestedNext.startsWith("/booking?")
-  );
+      // New providers must create their business profile first.
+      if (loggedInUser.role === "PROVIDER") {
+        try {
+          await providerProfileApi.getMyProvider();
+        } catch (profileError) {
+          if (
+            isApiError(profileError) &&
+            profileError.status === 404
+          ) {
+            router.replace("/dashboard/providers");
+            return;
+          }
 
-if (requestedNext === dashboard || isCustomerBooking) {
-  router.replace(requestedNext);
-} else {
-  router.replace(dashboard);
-}
+          // Other errors do not prove that the profile is missing.
+          // Continue with the normal redirect behavior.
+        }
+      }
+
+      // Customers can return to their requested booking page.
+      // Other requested destinations must match their role dashboard.
+      const isCustomerBooking =
+        loggedInUser.role === "CUSTOMER" &&
+        requestedNext !== null &&
+        (
+          requestedNext === "/booking" ||
+          requestedNext.startsWith("/booking?")
+        );
+
+      if (requestedNext === dashboard || isCustomerBooking) {
+        router.replace(requestedNext);
+      } else {
+        router.replace(dashboard);
+      }
     } catch (error) {
       setServerError(
         getApiErrorMessage(
@@ -200,10 +220,14 @@ if (requestedNext === dashboard || isCustomerBooking) {
 
                   <button
                     type="button"
-                    onClick={() => setShowPassword((previous) => !previous)}
-                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    onClick={() =>
+                      setShowPassword((previous) => !previous)
+                    }
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
                     aria-pressed={showPassword}
-                    className="absolute right-3 top-[42px] -translate-y-1/2 text-muted transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
+                    className="absolute right-3 top-[42px] -translate-y-1/2 rounded text-muted transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                   >
                     {showPassword ? (
                       <EyeOff size={20} aria-hidden="true" />

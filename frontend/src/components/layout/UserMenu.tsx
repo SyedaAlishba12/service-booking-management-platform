@@ -57,6 +57,15 @@ export default function UserMenu({
         user.role.slice(1).toLowerCase()
       : "Customer");
 
+  // Profile image URL formatting with backend base URL fallback
+  const profileImageUrl = user?.profile_image_url
+    ? user.profile_image_url.startsWith("http")
+      ? user.profile_image_url
+      : `${(
+          process.env.NEXT_PUBLIC_API_URL ?? ""
+        ).replace(/\/$/, "")}${user.profile_image_url}`
+    : null;
+
   const handleLogout = async () => {
     setOpen(false);
 
@@ -74,10 +83,16 @@ export default function UserMenu({
         aria-expanded={open}
         aria-haspopup="menu"
       >
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-sidebar text-sm font-semibold text-white">
-          {displayName
-            .charAt(0)
-            .toUpperCase()}
+        <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-sidebar text-sm font-semibold text-white">
+          {profileImageUrl ? (
+            <img
+              src={profileImageUrl}
+              alt={displayName}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            displayName.charAt(0).toUpperCase()
+          )}
         </span>
 
         <span className="hidden max-w-[120px] text-left xl:block">

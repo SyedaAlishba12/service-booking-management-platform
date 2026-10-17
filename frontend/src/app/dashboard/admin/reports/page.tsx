@@ -1,7 +1,5 @@
 "use client";
 
-// TODO: admin routes are unauthenticated until Zainab's auth is merged; api_client must then send the auth header.
-
 import { useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import Table, { Column } from "@/components/ui/Table";
@@ -48,9 +46,9 @@ function UsersReport({ queryParams }: { queryParams: { date_from: string; date_t
 
   if (isLoading) return <LoadingState message="Loading users report..." />;
   if (error) return <ErrorState message={error} action={<Button onClick={() => refetch()}>Retry</Button>} />;
-  if (!data?.data) return <EmptyState title="No data available" />;
+  if (!data) return <EmptyState title="No data available" />;
 
-  const report = data.data;
+  const report = data;
   const maxPerDay = Math.max(0, ...report.new_users_per_day.map(d => d.count));
 
   const perDayColumns: Column<{date: string, count: number}>[] = [
@@ -98,9 +96,9 @@ function ProvidersReport({ queryParams }: { queryParams: { date_from: string; da
 
   if (isLoading) return <LoadingState message="Loading providers report..." />;
   if (error) return <ErrorState message={error} action={<Button onClick={() => refetch()}>Retry</Button>} />;
-  if (!data?.data) return <EmptyState title="No data available" />;
+  if (!data) return <EmptyState title="No data available" />;
 
-  const report = data.data;
+  const report = data;
 
   const statusColumns: Column<{status: string, count: number}>[] = [
     { key: "status", header: "Status" },
@@ -169,9 +167,9 @@ function ServicesReport({ queryParams }: { queryParams: { date_from: string; dat
 
   if (isLoading) return <LoadingState message="Loading services report..." />;
   if (error) return <ErrorState message={error} action={<Button onClick={() => refetch()}>Retry</Button>} />;
-  if (!data?.data) return <EmptyState title="No data available" />;
+  if (!data) return <EmptyState title="No data available" />;
 
-  const report = data.data;
+  const report = data;
 
   const categoryColumns: Column<{category_id: string, count: number}>[] = [
     { 
@@ -236,9 +234,9 @@ function BookingsReport({ queryParams }: { queryParams: { date_from: string; dat
 
   if (isLoading) return <LoadingState message="Loading bookings report..." />;
   if (error) return <ErrorState message={error} action={<Button onClick={() => refetch()}>Retry</Button>} />;
-  if (!data?.data) return <EmptyState title="No data available" />;
+  if (!data) return <EmptyState title="No data available" />;
 
-  const report = data.data;
+  const report = data;
   const maxPerDay = Math.max(0, ...report.per_day.map(d => d.count));
 
   const statusColumns: Column<{status: string, count: number}>[] = [
@@ -297,9 +295,9 @@ function RevenueReport({ queryParams }: { queryParams: { date_from: string; date
 
   if (isLoading) return <LoadingState message="Loading revenue report..." />;
   if (error) return <ErrorState message={error} action={<Button onClick={() => refetch()}>Retry</Button>} />;
-  if (!data?.data) return <EmptyState title="No data available" />;
+  if (!data) return <EmptyState title="No data available" />;
 
-  const report = data.data;
+  const report = data;
   
   const statusColumns: Column<{status: string, count: number}>[] = [
     { key: "status", header: "Payment Status" },
@@ -375,9 +373,9 @@ function ReviewsReport({ queryParams }: { queryParams: { date_from: string; date
 
   if (isLoading) return <LoadingState message="Loading reviews report..." />;
   if (error) return <ErrorState message={error} action={<Button onClick={() => refetch()}>Retry</Button>} />;
-  if (!data?.data) return <EmptyState title="No data available" />;
+  if (!data) return <EmptyState title="No data available" />;
 
-  const report = data.data;
+  const report = data;
   const maxPerDay = Math.max(0, ...report.per_day.map(d => d.count));
 
   const breakdownColumns: Column<{rating: string, count: number}>[] = [
@@ -459,9 +457,9 @@ function ComplaintsReport({ queryParams }: { queryParams: { date_from: string; d
 
   if (isLoading) return <LoadingState message="Loading complaints report..." />;
   if (error) return <ErrorState message={error} action={<Button onClick={() => refetch()}>Retry</Button>} />;
-  if (!data?.data) return <EmptyState title="No data available" />;
+  if (!data) return <EmptyState title="No data available" />;
 
-  const report = data.data;
+  const report = data;
   const maxPerDay = Math.max(0, ...report.per_day.map(d => d.count));
 
   const statusColumns: Column<{status: string, count: number}>[] = [

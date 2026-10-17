@@ -1,6 +1,7 @@
 /**
  * @file ComplaintList.tsx
- * @description List of user's complaints
+ * Props: pageSize controls pagination; onSelect receives a selected complaint;
+ * requestOptions can provide request-specific options.
  */
 
 import { useState } from "react";
@@ -12,22 +13,13 @@ import ErrorState from "@/components/ui/ErrorState";
 import EmptyState from "@/components/ui/EmptyState";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
-import type { AdminComplaint, ComplaintStatus } from "@/types/complaint";
+import type { AdminComplaint } from "@/types/complaint";
+import ComplaintStatusBadge from "./ComplaintStatus";
 
 export interface ComplaintListProps {
   pageSize?: number;
   requestOptions?: RequestInit;
   onSelect?: (complaint: AdminComplaint) => void;
-}
-
-function getStatusVariant(status: ComplaintStatus) {
-  switch (status) {
-    case "OPEN": return "danger";
-    case "IN_REVIEW": return "warning";
-    case "RESOLVED": return "success";
-    case "REJECTED": return "default";
-    default: return "default";
-  }
 }
 
 export default function ComplaintList({ pageSize = 6, requestOptions, onSelect }: ComplaintListProps) {
@@ -61,7 +53,7 @@ export default function ComplaintList({ pageSize = 6, requestOptions, onSelect }
               <h3 className="font-semibold text-foreground">{complaint.subject}</h3>
               <div className="flex gap-2">
                 <Badge variant="info">{complaint.complaint_type}</Badge>
-                <Badge variant={getStatusVariant(complaint.status)}>{complaint.status.replace("_", " ")}</Badge>
+                <ComplaintStatusBadge status={complaint.status} />
               </div>
             </div>
             <p className="text-sm text-muted mb-2">
@@ -103,7 +95,7 @@ export default function ComplaintList({ pageSize = 6, requestOptions, onSelect }
                 </div>
                 <div>
                   <span className="font-semibold text-foreground">Status:</span>
-                  <p className="mt-1"><Badge variant={getStatusVariant(selectedComplaint.status)}>{selectedComplaint.status.replace("_", " ")}</Badge></p>
+                  <p className="mt-1"><ComplaintStatusBadge status={selectedComplaint.status} /></p>
                 </div>
               </div>
               <div>

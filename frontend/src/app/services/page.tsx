@@ -1,5 +1,4 @@
-﻿
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { Suspense, useMemo, useState } from "react";
@@ -16,6 +15,7 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import { useDebounce } from "@/hooks/useDebounce";
 import type { Category } from "@/types/category";
 import { apiClient } from "@/utils/api_client";
+import DashboardLayout from "@/components/layout/DashboardLayout";
 
 interface ProviderRating {
   provider_id: string;
@@ -31,6 +31,16 @@ type SortOption =
   | "reviews";
 
 const PAGE_SIZE = 12;
+
+const CUSTOMER_NAV_ITEMS = [
+  { label: "Dashboard", href: "/customer/dashboard" },
+  { label: "Book a Service", href: "/booking" },
+  { label: "My Bookings", href: "/bookings" },
+  { label: "Services", href: "/services?view=dashboard" },
+  { label: "Providers", href: "/providers?view=dashboard" },
+  { label: "Notifications", href: "/notifications" },
+  { label: "Settings", href: "/customer/profile" },
+];
 
 function formatPrice(value: string | number): string {
   const amount = Number(value);
@@ -78,6 +88,9 @@ function getLocalDateString(): string {
 function ServicesPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+
+  const isDashboardView = searchParams.get("view") === "dashboard";
+
   const { loading: authLoading, isAuthenticated } = useAuth();
 
   const [search, setSearch] = useState(
@@ -341,7 +354,11 @@ function ServicesPageContent() {
     setAvailableTime("");
     setSort("relevance");
     setPage(1);
-    router.replace("/services");
+
+    // Keep the customer dashboard view when clearing filters.
+    router.replace(
+      isDashboardView ? "/services?view=dashboard" : "/services",
+    );
   }
 
   const totalPages = servicesQuery.data?.meta.total_pages ?? 1;
@@ -355,257 +372,266 @@ function ServicesPageContent() {
   const availabilityError =
     Boolean(date) && services.length > 0 && availabilityQuery.isError;
 
-  return (
-    <main className="min-h-screen bg-background">
-      <section className="border-b border-line bg-surface">
-        <div className="container py-10">
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand">
-            Discover services
+  const pageContent = (
+    <div className="w-full space-y-8">
+      {/* Page introduction */}
+      <section className="rounded-2xl border border-line bg-surface p-5 shadow-sm sm:p-7">
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand">
+          {isDashboardView ? "Customer workspace" : "Explore our services"}
+        </p>
+
+        <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
+          Find the right service for you
+        </h1>
+
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
+          Explore services, compare prices and provider ratings, and find a
+          professional with an appointment that suits you.
+        </p>
+      </section>
+
+      {/* Search and filters */}
+      <section className="rounded-2xl border border-line bg-surface p-4 shadow-sm sm:p-6">
+        <div className="mb-5">
+          <h2 className="text-lg font-bold">Search and filters</h2>
+          <p className="mt-1 text-sm text-muted">
+            Narrow down services by category, price, rating, location, and
+            appointment availability.
           </p>
+        </div>
 
-          <h1 className="mt-2 text-3xl font-bold sm:text-4xl">
-            Find the right service for you
-          </h1>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div>
+            <label
+              htmlFor="service-search"
+              className="mb-2 block text-sm font-semibold"
+            >
+              Search services or providers
+            </label>
+            <input
+              id="service-search"
+              value={search}
+              onChange={(event) => {
+                resetPage();
+                setSearch(event.target.value);
+              }}
+              placeholder="e.g. haircut, cleaning, provider..."
+              className="w-full rounded-xl border border-line bg-background px-4 py-3 text-sm outline-none transition focus:border-brand"
+            />
+          </div>
 
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
-            Explore services, compare prices and provider ratings, and find a
-            professional with an appointment that suits you.
-          </p>
+          <div>
+            <label
+              htmlFor="category"
+              className="mb-2 block text-sm font-semibold"
+            >
+              Category
+            </label>
+            <select
+              id="category"
+              value={categoryId}
+              onChange={(event) => {
+                resetPage();
+                setCategoryId(event.target.value);
+              }}
+              className="w-full rounded-xl border border-line bg-background px-4 py-3 text-sm outline-none focus:border-brand"
+            >
+              <option value="">All categories</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          <div className="mt-8 rounded-2xl border border-line bg-background p-4 shadow-sm">
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <div>
-                <label
-                  htmlFor="service-search"
-                  className="mb-2 block text-sm font-semibold"
-                >
-                  Search services or providers
-                </label>
-                <input
-                  id="service-search"
-                  value={search}
-                  onChange={(event) => {
-                    resetPage();
-                    setSearch(event.target.value);
-                  }}
-                  placeholder="e.g. haircut, cleaning, provider..."
-                  className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-sm outline-none focus:border-brand"
-                />
-              </div>
+          <div>
+            <label
+              htmlFor="location"
+              className="mb-2 block text-sm font-semibold"
+            >
+              Location
+            </label>
+            <input
+              id="location"
+              value={location}
+              onChange={(event) => {
+                resetPage();
+                setLocation(event.target.value);
+              }}
+              placeholder="City or area"
+              className="w-full rounded-xl border border-line bg-background px-4 py-3 text-sm outline-none focus:border-brand"
+            />
+          </div>
 
-              <div>
-                <label
-                  htmlFor="category"
-                  className="mb-2 block text-sm font-semibold"
-                >
-                  Category
-                </label>
-                <select
-                  id="category"
-                  value={categoryId}
-                  onChange={(event) => {
-                    resetPage();
-                    setCategoryId(event.target.value);
-                  }}
-                  className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-sm outline-none focus:border-brand"
-                >
-                  <option value="">All categories</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+          <div>
+            <label
+              htmlFor="min-price"
+              className="mb-2 block text-sm font-semibold"
+            >
+              Minimum price (PKR)
+            </label>
+            <input
+              id="min-price"
+              type="number"
+              min="0"
+              value={minPrice}
+              onChange={(event) => {
+                resetPage();
+                setMinPrice(event.target.value);
+              }}
+              placeholder="e.g. 1000"
+              className="w-full rounded-xl border border-line bg-background px-4 py-3 text-sm outline-none focus:border-brand"
+            />
+          </div>
 
-              <div>
-                <label
-                  htmlFor="location"
-                  className="mb-2 block text-sm font-semibold"
-                >
-                  Location
-                </label>
-                <input
-                  id="location"
-                  value={location}
-                  onChange={(event) => {
-                    resetPage();
-                    setLocation(event.target.value);
-                  }}
-                  placeholder="City or area"
-                  className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-sm outline-none focus:border-brand"
-                />
-              </div>
+          <div>
+            <label
+              htmlFor="max-price"
+              className="mb-2 block text-sm font-semibold"
+            >
+              Maximum price (PKR)
+            </label>
+            <input
+              id="max-price"
+              type="number"
+              min="0"
+              value={maxPrice}
+              onChange={(event) => {
+                resetPage();
+                setMaxPrice(event.target.value);
+              }}
+              placeholder="e.g. 5000"
+              className="w-full rounded-xl border border-line bg-background px-4 py-3 text-sm outline-none focus:border-brand"
+            />
+          </div>
 
-              <div>
-                <label
-                  htmlFor="min-price"
-                  className="mb-2 block text-sm font-semibold"
-                >
-                  Minimum price (PKR)
-                </label>
-                <input
-                  id="min-price"
-                  type="number"
-                  min="0"
-                  value={minPrice}
-                  onChange={(event) => {
-                    resetPage();
-                    setMinPrice(event.target.value);
-                  }}
-                  placeholder="e.g. 1000"
-                  className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-sm outline-none focus:border-brand"
-                />
-              </div>
+          <div>
+            <label
+              htmlFor="rating"
+              className="mb-2 block text-sm font-semibold"
+            >
+              Minimum provider rating
+            </label>
+            <select
+              id="rating"
+              value={minRating}
+              onChange={(event) => {
+                resetPage();
+                setMinRating(event.target.value);
+              }}
+              className="w-full rounded-xl border border-line bg-background px-4 py-3 text-sm outline-none focus:border-brand"
+            >
+              <option value="">Any rating</option>
+              <option value="4">4.0 and above</option>
+              <option value="4.5">4.5 and above</option>
+              <option value="4.8">4.8 and above</option>
+            </select>
+          </div>
 
-              <div>
-                <label
-                  htmlFor="max-price"
-                  className="mb-2 block text-sm font-semibold"
-                >
-                  Maximum price (PKR)
-                </label>
-                <input
-                  id="max-price"
-                  type="number"
-                  min="0"
-                  value={maxPrice}
-                  onChange={(event) => {
-                    resetPage();
-                    setMaxPrice(event.target.value);
-                  }}
-                  placeholder="e.g. 5000"
-                  className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-sm outline-none focus:border-brand"
-                />
-              </div>
+          <div>
+            <label
+              htmlFor="service-type"
+              className="mb-2 block text-sm font-semibold"
+            >
+              Service type
+            </label>
+            <select
+              id="service-type"
+              value={serviceType}
+              onChange={(event) => {
+                resetPage();
+                setServiceType(event.target.value);
+              }}
+              className="w-full rounded-xl border border-line bg-background px-4 py-3 text-sm outline-none focus:border-brand"
+            >
+              <option value="">All service types</option>
+              <option value="ON_SITE">On Site</option>
+              <option value="AT_PROVIDER">At Provider</option>
+              <option value="ONLINE">Online</option>
+            </select>
+          </div>
 
-              <div>
-                <label
-                  htmlFor="rating"
-                  className="mb-2 block text-sm font-semibold"
-                >
-                  Minimum provider rating
-                </label>
-                <select
-                  id="rating"
-                  value={minRating}
-                  onChange={(event) => {
-                    resetPage();
-                    setMinRating(event.target.value);
-                  }}
-                  className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-sm outline-none focus:border-brand"
-                >
-                  <option value="">Any rating</option>
-                  <option value="4">4.0 and above</option>
-                  <option value="4.5">4.5 and above</option>
-                  <option value="4.8">4.8 and above</option>
-                </select>
-              </div>
+          <div>
+            <label
+              htmlFor="available-date"
+              className="mb-2 block text-sm font-semibold"
+            >
+              Available date
+            </label>
+            <input
+              id="available-date"
+              type="date"
+              min={getLocalDateString()}
+              value={date}
+              onChange={(event) => {
+                resetPage();
+                setDate(event.target.value);
+                setAvailableTime("");
+              }}
+              className="w-full rounded-xl border border-line bg-background px-4 py-3 text-sm outline-none focus:border-brand"
+            />
+          </div>
 
-              <div>
-                <label
-                  htmlFor="service-type"
-                  className="mb-2 block text-sm font-semibold"
-                >
-                  Service type
-                </label>
-                <select
-                  id="service-type"
-                  value={serviceType}
-                  onChange={(event) => {
-                    resetPage();
-                    setServiceType(event.target.value);
-                  }}
-                  className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-sm outline-none focus:border-brand"
-                >
-                  <option value="">All service types</option>
-                  <option value="ON_SITE">On Site</option>
-                  <option value="AT_PROVIDER">At Provider</option>
-                  <option value="ONLINE">Online</option>
-                </select>
-              </div>
+          <div>
+            <label
+              htmlFor="available-time"
+              className="mb-2 block text-sm font-semibold"
+            >
+              Available time
+            </label>
+            <select
+              id="available-time"
+              value={availableTime}
+              disabled={
+                !date || isCheckingAvailability || availabilityError
+              }
+              onChange={(event) => {
+                resetPage();
+                setAvailableTime(event.target.value);
+              }}
+              className="w-full rounded-xl border border-line bg-background px-4 py-3 text-sm outline-none focus:border-brand disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <option value="">
+                {!date
+                  ? "Select a date first"
+                  : isCheckingAvailability
+                    ? "Checking available times..."
+                    : availabilityError
+                      ? "Availability unavailable"
+                      : "Any available time"}
+              </option>
+              {availableTimes.map((time) => (
+                <option key={time} value={time}>
+                  {formatTime(time)}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
 
-              <div>
-                <label
-                  htmlFor="available-date"
-                  className="mb-2 block text-sm font-semibold"
-                >
-                  Available date
-                </label>
-                <input
-                  id="available-date"
-                  type="date"
-                  min={getLocalDateString()}
-                  value={date}
-                  onChange={(event) => {
-                    resetPage();
-                    setDate(event.target.value);
-                    setAvailableTime("");
-                  }}
-                  className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-sm outline-none focus:border-brand"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="available-time"
-                  className="mb-2 block text-sm font-semibold"
-                >
-                  Available time
-                </label>
-                <select
-                  id="available-time"
-                  value={availableTime}
-                  disabled={
-                    !date ||
-                    isCheckingAvailability ||
-                    availabilityError
-                  }
-                  onChange={(event) => {
-                    resetPage();
-                    setAvailableTime(event.target.value);
-                  }}
-                  className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-sm outline-none focus:border-brand disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <option value="">
-                    {!date
-                      ? "Select a date first"
-                      : isCheckingAvailability
-                        ? "Checking available times..."
-                        : availabilityError
-                          ? "Availability unavailable"
-                          : "Any available time"}
-                  </option>
-                  {availableTimes.map((time) => (
-                    <option key={time} value={time}>
-                      {formatTime(time)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="mt-4 flex justify-end">
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="rounded-xl border border-line px-5 py-2.5 text-sm font-semibold transition hover:bg-surface"
-              >
-                Clear filters
-              </button>
-            </div>
-
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
+          <div>
             {categoriesQuery.isError && (
-              <p className="mt-3 text-sm text-muted" role="status">
+              <p className="text-sm text-muted" role="status">
                 Categories are temporarily unavailable. You can still browse
                 services.
               </p>
             )}
           </div>
+
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="rounded-xl border border-line px-5 py-2.5 text-sm font-semibold transition hover:bg-background"
+          >
+            Clear filters
+          </button>
         </div>
       </section>
 
-      <section className="container py-10">
+      {/* Service results */}
+      <section className="space-y-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-xl font-bold">Available services</h2>
@@ -642,13 +668,15 @@ function ServicesPageContent() {
         </div>
 
         {isLoading && (
-          <p className="mt-6 text-sm text-muted" role="status">
-            Fetching services from the server...
-          </p>
+          <div className="rounded-2xl border border-line bg-surface p-8 text-center">
+            <p className="text-sm text-muted" role="status">
+              Fetching services from the server...
+            </p>
+          </div>
         )}
 
         {serviceError && (
-          <div className="mt-6 rounded-2xl border border-line bg-surface p-8">
+          <div className="rounded-2xl border border-line bg-surface p-8">
             <h3 className="font-bold">Services could not be loaded</h3>
             <p className="mt-2 text-sm leading-6 text-muted">
               The services API is currently unavailable. Please try again.
@@ -664,7 +692,7 @@ function ServicesPageContent() {
         )}
 
         {availabilityError && (
-          <div className="mt-6 rounded-xl border border-line bg-surface p-4">
+          <div className="rounded-xl border border-line bg-surface p-4">
             <p className="text-sm" role="alert">
               Appointment availability could not be checked. Please try again.
               Services are not being marked available without a successful slot
@@ -685,7 +713,7 @@ function ServicesPageContent() {
           !isCheckingAvailability &&
           !availabilityError &&
           sortedServices.length === 0 && (
-            <div className="mt-6 rounded-2xl border border-dashed border-line bg-surface p-10 text-center">
+            <div className="rounded-2xl border border-dashed border-line bg-surface p-10 text-center">
               <h3 className="text-lg font-bold">No services found</h3>
               <p className="mt-2 text-sm text-muted">
                 Try changing your search or filters.
@@ -705,7 +733,7 @@ function ServicesPageContent() {
           !isCheckingAvailability &&
           !availabilityError &&
           sortedServices.length > 0 && (
-            <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
               {sortedServices.map((service) => {
                 const provider = service.provider;
                 const rating = ratings[service.provider_id];
@@ -752,7 +780,11 @@ function ServicesPageContent() {
                         <span className="text-muted">Provider: </span>
                         {provider ? (
                           <Link
-                            href={`/providers/${provider.id}`}
+                            href={
+                              isDashboardView
+                                ? `/providers/${provider.id}?view=dashboard`
+                                : `/providers/${provider.id}`
+                            }
                             className="font-semibold text-brand hover:underline"
                           >
                             {provider.business_name}
@@ -794,7 +826,7 @@ function ServicesPageContent() {
                         </p>
                       )}
 
-                      <div className="mt-auto mt-5 flex items-end justify-between gap-3 border-t border-line pt-4">
+                      <div className="mt-auto flex items-end justify-between gap-3 border-t border-line pt-4">
                         <div>
                           <span className="text-xs text-muted">Price</span>
                           <p className="text-lg font-bold">
@@ -825,14 +857,14 @@ function ServicesPageContent() {
           )}
 
         {!isLoading && !serviceError && !date && (
-          <p className="mt-8 text-xs leading-5 text-muted">
+          <p className="text-xs leading-5 text-muted">
             Weekly schedules do not guarantee that a specific appointment slot
             is free. Select a date to check actual availability before booking.
           </p>
         )}
 
         {!isLoading && !serviceError && totalPages > 1 && (
-          <div className="mt-8 flex items-center justify-center gap-4">
+          <div className="flex items-center justify-center gap-4">
             <button
               type="button"
               disabled={page <= 1 || servicesQuery.isFetching}
@@ -859,7 +891,23 @@ function ServicesPageContent() {
           </div>
         )}
       </section>
-    </main>
+    </div>
+  );
+
+  // Public /services stays public and does not display the customer sidebar.
+  if (!isDashboardView) {
+    return pageContent;
+  }
+
+  return (
+    <DashboardLayout
+      sidebarItems={CUSTOMER_NAV_ITEMS}
+      activeHref="/services?view=dashboard"
+      title="Services"
+      description="Explore services, compare prices, and find an appointment."
+    >
+      {pageContent}
+    </DashboardLayout>
   );
 }
 
@@ -867,13 +915,11 @@ export default function ServicesPage() {
   return (
     <Suspense
       fallback={
-        <main className="min-h-screen bg-background">
-          <section className="container py-10">
-            <p className="text-sm text-muted" role="status">
-              Loading services...
-            </p>
-          </section>
-        </main>
+        <div className="min-h-screen bg-background p-6">
+          <p className="text-sm text-muted" role="status">
+            Loading services...
+          </p>
+        </div>
       }
     >
       <ServicesPageContent />

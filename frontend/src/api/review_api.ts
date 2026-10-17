@@ -2,8 +2,6 @@ import { apiClient } from "@/utils/api_client";
 import type { PaginatedData } from "@/types/api";
 import type { Review, ProviderRatingSummary, ReviewCreatePayload, ReviewUpdatePayload } from "@/types/review";
 
-// TODO: once the real auth lands, api_client should attach the token and these options will no longer be needed.
-
 export const reviewApi = {
   getProviderRating(providerId: string): Promise<ProviderRatingSummary> {
     return apiClient.get<ProviderRatingSummary>(`/api/providers/${providerId}/rating`);

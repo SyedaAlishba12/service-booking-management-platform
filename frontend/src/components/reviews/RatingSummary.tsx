@@ -1,6 +1,6 @@
 /**
  * @file RatingSummary.tsx
- * @description Displays the average rating, total count, and a 5-to-1 breakdown
+ * Props: pass providerId to load a provider summary, or summary for preloaded data.
  */
 
 import { useProviderRating } from "@/hooks/useProviderRating";
