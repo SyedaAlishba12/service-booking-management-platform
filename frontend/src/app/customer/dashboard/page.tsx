@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -18,7 +17,7 @@ type DashboardState = {
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/customer/dashboard" },
-  { label: "Bookings", href: "/bookings" },
+  { label: "Bookings", href: "/booking" },
   { label: "Services", href: "/services" },
   { label: "Notifications", href: "/notifications" },
   { label: "Settings", href: "/customer/profile" },
@@ -209,34 +208,34 @@ export default function CustomerDashboardPage() {
           </div>
         )}
 
-        <section className="overflow-hidden rounded-2xl bg-gradient-to-r from-blue-700 to-indigo-700 p-6 text-white sm:p-8">
+        {/* Welcome Section - Global Design System Theme Matched */}
+        <section className="blue-surface overflow-hidden rounded-card p-6 shadow-md sm:p-8">
           <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
             <div>
-              <p className="text-sm text-blue-100">Your customer dashboard</p>
-              <h1 className="mt-2 text-3xl font-bold">
+              <p className="text-sm font-medium text-text-on-blue/80">Customer Dashboard</p>
+              <h1 className="mt-2 text-3xl font-bold tracking-tight text-text-on-blue">
                 Welcome, {name}!
               </h1>
-              <p className="mt-2 max-w-xl text-sm text-blue-100">
-                Find services, manage your appointments, and keep your account
-                up to date.
+              <p className="mt-2 max-w-xl text-sm leading-relaxed text-text-on-blue/90">
+                Find services, manage your appointments, and keep your account up to date.
               </p>
               <div className="mt-5 flex flex-wrap gap-3">
                 <Link
                   href="/services"
-                  className="rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-50"
+                  className="btn-outline rounded-xl bg-surface px-4 py-2.5 text-sm font-semibold text-brand shadow-sm transition hover:bg-brand-soft"
                 >
                   Explore Services
                 </Link>
                 <Link
-                  href="/bookings"
-                  className="rounded-lg border border-white/50 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/10"
+                  href="/booking"
+                  className="rounded-xl border border-white/40 bg-white/10 px-4 py-2.5 text-sm font-semibold text-text-on-blue transition hover:bg-white/20"
                 >
                   My Bookings
                 </Link>
               </div>
             </div>
 
-            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white/60 bg-white/15 text-2xl font-bold">
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white/60 bg-white/15 text-2xl font-bold text-text-on-blue shadow-inner">
               {profileImageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -251,6 +250,7 @@ export default function CustomerDashboardPage() {
           </div>
         </section>
 
+        {/* Statistics Cards */}
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {[
             {
@@ -287,12 +287,13 @@ export default function CustomerDashboardPage() {
           ))}
         </div>
 
+        {/* Upcoming Appointments & Recent Bookings Panels */}
         <div className="grid gap-6 xl:grid-cols-2">
           <Panel
             title="Upcoming Appointments"
             action={
               <Link
-                href="/bookings"
+                href="/booking"
                 className="text-sm font-medium text-blue-700 hover:underline"
               >
                 View all
@@ -359,7 +360,7 @@ export default function CustomerDashboardPage() {
             title="Recent Bookings"
             action={
               <Link
-                href="/bookings"
+                href="/booking"
                 className="text-sm font-medium text-blue-700 hover:underline"
               >
                 Booking history
@@ -378,29 +379,47 @@ export default function CustomerDashboardPage() {
               </p>
             ) : (
               <div className="space-y-3">
-                {recentBookings.map((booking) => (
-                  <div
-                    key={booking.id}
-                    className="flex items-center justify-between gap-3 border-b border-gray-100 pb-3 last:border-0"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate font-medium text-gray-900">
-                        {booking.service_name || "Service appointment"}
-                      </p>
-                      <p className="mt-1 text-xs text-gray-500">
-                        {dateLabel(booking.start_at)}
-                      </p>
+                {recentBookings.map((booking) => {
+                  const statusUpper = String(booking.status ?? "").toUpperCase();
+                  const isCompleted = statusUpper.includes("COMPLETED");
+
+                  return (
+                    <div
+                      key={booking.id}
+                      className="flex items-center justify-between gap-3 border-b border-gray-100 pb-3 last:border-0"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-gray-900">
+                          {booking.service_name || "Service appointment"}
+                        </p>
+                        <p className="mt-1 text-xs text-gray-500">
+                          {dateLabel(booking.start_at)}
+                        </p>
+                      </div>
+
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-700">
+                          {statusLabel(booking.status)}
+                        </span>
+
+                        {isCompleted && (
+                          <Link
+                            href={`/booking?review_booking_id=${booking.id}`}
+                            className="rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-semibold text-brand hover:bg-blue-100"
+                          >
+                            Leave Review
+                          </Link>
+                        )}
+                      </div>
                     </div>
-                    <span className="shrink-0 rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-700">
-                      {statusLabel(booking.status)}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </Panel>
         </div>
 
+        {/* Notifications & Quick Actions Panels */}
         <div className="grid gap-6 xl:grid-cols-2">
           <Panel
             title="Notifications"
@@ -451,7 +470,7 @@ export default function CustomerDashboardPage() {
                   description: "Find the right service for you",
                 },
                 {
-                  href: "/bookings",
+                  href: "/booking",
                   title: "My Bookings",
                   description: "View or manage appointments",
                 },
@@ -479,18 +498,6 @@ export default function CustomerDashboardPage() {
                   </p>
                 </Link>
               ))}
-            </div>
-            <div className="mt-4 rounded-xl bg-gray-50 p-4 text-sm text-gray-600">
-              To leave a review, open your completed booking and use the review
-              action provided by the booking/review pages.
-              <div className="mt-2">
-                <Link
-                  href="/bookings"
-                  className="font-semibold text-blue-700 hover:underline"
-                >
-                  Open bookings
-                </Link>
-              </div>
             </div>
           </Panel>
         </div>

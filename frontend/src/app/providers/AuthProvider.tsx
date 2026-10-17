@@ -1,4 +1,3 @@
-
 "use client";
 
 import {
@@ -124,7 +123,6 @@ export function AuthProvider({
         }
       );
 
-      // Signup does not automatically log in the user.
       return response;
     },
     []
