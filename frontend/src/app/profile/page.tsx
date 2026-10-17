@@ -21,11 +21,12 @@ import {
 import { useAuth } from "@/app/providers/AuthProvider";
 import { getApiErrorMessage } from "@/utils/api_error_handler";
 
-function getReturnPath(role: string): string {
-  if (role === "CUSTOMER") return "/dashboard";
-  if (role === "PROVIDER") return "/provider/dashboard";
 
-  // The admin dashboard route has not been confirmed.
+function getReturnPath(role: string): string {
+  if (role === "CUSTOMER") return "/customer/dashboard";
+  if (role === "PROVIDER") return "/provider/dashboard";
+  if (role === "ADMIN") return "/dashboard/admin";
+
   return "/landing";
 }
 
