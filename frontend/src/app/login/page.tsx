@@ -99,11 +99,21 @@ function LoginPageContent() {
 
       // Only honor a requested destination if it is the
       // dashboard assigned to the authenticated user's role.
-      if (requestedNext === dashboard) {
-        router.replace(requestedNext);
-      } else {
-        router.replace(dashboard);
-      }
+     // Customers can return to their requested booking page.
+// Other requested destinations must match the user's dashboard.
+const isCustomerBooking =
+  loggedInUser.role === "CUSTOMER" &&
+  requestedNext !== null &&
+  (
+    requestedNext === "/booking" ||
+    requestedNext.startsWith("/booking?")
+  );
+
+if (requestedNext === dashboard || isCustomerBooking) {
+  router.replace(requestedNext);
+} else {
+  router.replace(dashboard);
+}
     } catch (error) {
       setServerError(
         getApiErrorMessage(

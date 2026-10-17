@@ -104,7 +104,7 @@ export default function HeroSection() {
             </p>
 
             <div className="mt-7 flex flex-wrap gap-3">
-              <Link href="/#services">
+              <Link href="/services">
                 <Button variant="primary" size="lg">
                   Explore Services
                 </Button>

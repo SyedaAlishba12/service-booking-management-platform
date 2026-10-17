@@ -29,9 +29,17 @@ def _conditions(filters: ServiceFilters, public_only: bool) -> list:
         conds.append(Service.price >= filters.min_price)
     if filters.max_price is not None:
         conds.append(Service.price <= filters.max_price)
+    
     if filters.q:
         like = f"%{filters.q}%"
-        conds.append(or_(Service.name.ilike(like), Service.description.ilike(like)))
+        conds.append(
+            or_(
+                Service.name.ilike(like),
+                Service.description.ilike(like),
+                Provider.business_name.ilike(like),
+            )
+        )
+
     if filters.location:
         like = f"%{filters.location}%"
         conds.append(

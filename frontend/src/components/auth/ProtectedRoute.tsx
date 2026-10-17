@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import {
+  usePathname,
+  useRouter,
+  useSearchParams,
+} from "next/navigation";
 
 import LoadingState from "@/components/ui/LoadingState";
 import { useAuth } from "@/app/providers/AuthProvider";
@@ -11,24 +15,28 @@ export default function ProtectedRoute({
 }: {
   children: React.ReactNode;
 }) {
-  const {
-    loading,
-    isAuthenticated,
-  } = useAuth();
+  const { loading, isAuthenticated } = useAuth();
 
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const queryString = searchParams.toString();
+
+  const currentPath = queryString
+    ? `${pathname}?${queryString}`
+    : pathname;
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
       router.replace(
-        `/login?next=${encodeURIComponent(pathname)}`
+        `/login?next=${encodeURIComponent(currentPath)}`
       );
     }
   }, [
     loading,
     isAuthenticated,
-    pathname,
+    currentPath,
     router,
   ]);
 

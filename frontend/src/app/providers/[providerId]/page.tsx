@@ -1,11 +1,12 @@
-
+﻿
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { apiClient } from "@/utils/api_client";
+import { useAuth } from "@/app/providers/AuthProvider";
 import { reviewApi } from "@/api/review_api";
 import Rating from "@/components/ui/Rating";
 import type { Page } from "@/types/booking";
@@ -162,6 +163,19 @@ function SectionHeading({
 export default function PublicProviderProfilePage() {
   const params = useParams<{ providerId: string }>();
   const providerId = params.providerId;
+  const router = useRouter();
+  const { loading: authLoading, isAuthenticated } = useAuth();
+
+  function navigateToBooking(bookingPath: string) {
+    if (authLoading) return;
+
+    if (!isAuthenticated) {
+      router.push(`/login?next=${encodeURIComponent(bookingPath)}`);
+      return;
+    }
+
+    router.push(bookingPath);
+  }
 
   const [provider, setProvider] =
     useState<PublicProviderProfile | null>(null);
@@ -390,7 +404,7 @@ export default function PublicProviderProfilePage() {
               </h1>
 
               <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
-                <span aria-hidden="true">📍</span>
+                <span aria-hidden="true">ðŸ“</span>
                 <span>
                   {[provider.location, provider.city]
                     .filter(Boolean)
@@ -452,7 +466,7 @@ export default function PublicProviderProfilePage() {
               {provider.contact_phone && (
                 <div className="flex gap-3">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft">
-                    ☎
+                    â˜Ž
                   </span>
                   <div className="min-w-0">
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted">
@@ -471,7 +485,7 @@ export default function PublicProviderProfilePage() {
               {provider.contact_email && (
                 <div className="flex gap-3">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft">
-                    ✉
+                    âœ‰
                   </span>
                   <div className="min-w-0">
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted">
@@ -489,7 +503,7 @@ export default function PublicProviderProfilePage() {
 
               <div className="flex gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft">
-                  ◷
+                  â—·
                 </span>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted">
@@ -522,7 +536,7 @@ export default function PublicProviderProfilePage() {
           {activeServices.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-line bg-surface p-10 text-center">
               <div className="text-4xl" aria-hidden="true">
-                ✨
+                âœ¨
               </div>
               <h3 className="mt-4 text-xl font-bold">
                 No services listed yet
@@ -540,7 +554,7 @@ export default function PublicProviderProfilePage() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-soft text-xl text-brand">
-                      ✦
+                      âœ¦
                     </div>
                     <span className="rounded-full bg-secondary-soft px-3 py-1 text-xs font-semibold text-brand">
                       {getServiceTypeLabel(service.service_type)}
@@ -558,7 +572,7 @@ export default function PublicProviderProfilePage() {
 
                   {service.location && (
                     <p className="mt-3 text-xs text-muted">
-                      📍 {service.location}
+                      ðŸ“ {service.location}
                     </p>
                   )}
 
@@ -575,12 +589,18 @@ export default function PublicProviderProfilePage() {
                       </p>
                     </div>
 
-                    <Link
-                      href={`/booking?provider_id=${encodeURIComponent(provider.id)}&service_id=${encodeURIComponent(service.id)}`}
-                      className="btn-primary inline-flex shrink-0 items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold"
+                    <button
+                      type="button"
+                      onClick={() =>
+                        navigateToBooking(
+                          `/booking?provider_id=${encodeURIComponent(provider.id)}&service_id=${encodeURIComponent(service.id)}`
+                        )
+                      }
+                      disabled={authLoading}
+                      className="btn-primary inline-flex shrink-0 items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-60"
                     >
                       Book now
-                    </Link>
+                    </button>
                   </div>
                 </article>
               ))}
@@ -609,7 +629,7 @@ export default function PublicProviderProfilePage() {
 
                 {!availability ? (
                   <p className="mt-4 text-sm text-muted">
-                    Loading schedule…
+                    Loading scheduleâ€¦
                   </p>
                 ) : weekly.length === 0 ? (
                   <p className="mt-4 text-sm text-muted">
@@ -638,7 +658,7 @@ export default function PublicProviderProfilePage() {
                                   key={entry.id}
                                   className="text-sm text-muted"
                                 >
-                                  {formatTime(entry.start_time)} –{" "}
+                                  {formatTime(entry.start_time)} â€“{" "}
                                   {formatTime(entry.end_time)}
                                 </p>
                               ))
@@ -673,7 +693,7 @@ export default function PublicProviderProfilePage() {
 
                 {!availability ? (
                   <p className="mt-4 text-sm text-muted">
-                    Loading schedule changes…
+                    Loading schedule changesâ€¦
                   </p>
                 ) : upcomingExceptions.length === 0 ? (
                   <div className="mt-5 rounded-2xl bg-brand-soft p-5">
@@ -698,7 +718,7 @@ export default function PublicProviderProfilePage() {
                           {exception.is_day_off
                             ? "Day off"
                             : exception.start_time && exception.end_time
-                              ? `${formatTime(exception.start_time)} – ${formatTime(exception.end_time)}`
+                              ? `${formatTime(exception.start_time)} â€“ ${formatTime(exception.end_time)}`
                               : "Special hours"}
                         </p>
                         {exception.reason && (
@@ -711,12 +731,18 @@ export default function PublicProviderProfilePage() {
                   </div>
                 )}
 
-                <Link
-                  href={`/booking?provider_id=${encodeURIComponent(provider.id)}`}
-                  className="btn-primary mt-6 inline-flex rounded-xl px-5 py-3 text-sm font-semibold"
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigateToBooking(
+                      `/booking?provider_id=${encodeURIComponent(provider.id)}`
+                    )
+                  }
+                  disabled={authLoading}
+                  className="btn-primary mt-6 inline-flex rounded-xl px-5 py-3 text-sm font-semibold disabled:opacity-60"
                 >
                   Find an appointment
-                </Link>
+                </button>
               </div>
             </div>
           )}
@@ -793,7 +819,7 @@ export default function PublicProviderProfilePage() {
               ) : reviews.length === 0 ? (
                 <div className="py-5 text-center">
                   <p className="text-3xl" aria-hidden="true">
-                    ☆
+                    â˜†
                   </p>
                   <h3 className="mt-3 text-lg font-bold">
                     No reviews yet
@@ -866,15 +892,22 @@ export default function PublicProviderProfilePage() {
               </p>
             </div>
 
-            <Link
-              href={`/booking?provider_id=${encodeURIComponent(provider.id)}`}
-              className="inline-flex shrink-0 items-center justify-center rounded-xl bg-white px-5 py-3 text-sm font-bold text-brand transition hover:bg-brand-soft"
+            <button
+              type="button"
+              onClick={() =>
+                navigateToBooking(
+                  `/booking?provider_id=${encodeURIComponent(provider.id)}`
+                )
+              }
+              disabled={authLoading}
+              className="inline-flex shrink-0 items-center justify-center rounded-xl bg-white px-5 py-3 text-sm font-bold text-brand transition hover:bg-brand-soft disabled:opacity-60"
             >
               Book an appointment
-            </Link>
+            </button>
           </div>
         </section>
       </div>
     </main>
   );
 }
+
