@@ -1,8 +1,10 @@
 
 "use client";
 
-import type { ReactNode } from "react";
+import type { FormEvent, ReactNode } from "react";
+import { useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import UserMenu from "./UserMenu";
 
 interface DashboardHeaderProps {
@@ -15,10 +17,11 @@ interface DashboardHeaderProps {
   actions?: ReactNode;
   onMenuClick?: () => void;
   showBookNow?: boolean;
+  searchInDashboard?: boolean;
 }
 
 const roundBtn =
-  "relative flex h-10 w-10 items-center justify-center rounded-full bg-white text-foreground shadow-sm transition-all duration-200 hover:bg-brand-soft hover:text-brand hover:shadow-md";
+  "relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-foreground shadow-sm transition-all duration-200 hover:bg-brand-soft hover:text-brand hover:shadow-md";
 
 function SearchIcon() {
   return (
@@ -33,6 +36,22 @@ function SearchIcon() {
     >
       <circle cx="11" cy="11" r="6.5" />
       <path d="m16 16 4 4" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      className="h-4 w-4"
+    >
+      <path d="m6 6 12 12M18 6 6 18" />
     </svg>
   );
 }
@@ -78,11 +97,38 @@ export default function DashboardHeader({
   actions,
   onMenuClick,
   showBookNow = false,
+  searchInDashboard = false,
 }: DashboardHeaderProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState("");
+
+  function handleSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const query = searchValue.trim();
+    const params = new URLSearchParams();
+
+    if (searchInDashboard) {
+      params.set("view", "dashboard");
+    }
+
+    if (query) {
+      params.set("search", query);
+    }
+
+    const queryString = params.toString();
+
+    router.push(`/services${queryString ? `?${queryString}` : ""}`);
+    setSearchOpen(false);
+  }
+
   return (
     <header className="px-4 pb-3 pt-4 sm:px-6 lg:px-8">
       <div className="mx-auto w-full max-w-[1380px]">
-        <div className="flex min-h-11 items-center justify-between gap-4">
+        <div className="flex min-h-11 items-center justify-between gap-3">
           {/* Left side */}
           <div className="flex min-w-0 items-center gap-3">
             <button
@@ -111,10 +157,12 @@ export default function DashboardHeader({
 
             <button
               type="button"
-              aria-label="Search"
+              aria-label={searchOpen ? "Close search" : "Open search"}
+              aria-expanded={searchOpen}
+              onClick={() => setSearchOpen((open) => !open)}
               className={roundBtn}
             >
-              <SearchIcon />
+              {searchOpen ? <CloseIcon /> : <SearchIcon />}
             </button>
 
             <Link
@@ -132,12 +180,41 @@ export default function DashboardHeader({
               )}
             </Link>
 
-            <UserMenu
-              userName={userName}
-              userEmail={userEmail}
-            />
+            <UserMenu userName={userName} userEmail={userEmail} />
           </div>
         </div>
+
+        {/* Expandable dashboard search */}
+        {searchOpen && (
+          <form
+            onSubmit={handleSearch}
+            role="search"
+            aria-label="Search services"
+            className="mt-4 flex items-center gap-2 rounded-xl border border-line bg-surface p-2 shadow-sm focus-within:border-brand"
+          >
+            <label htmlFor="dashboard-service-search" className="sr-only">
+              Search services or providers
+            </label>
+
+            <input
+              autoFocus
+              id="dashboard-service-search"
+              type="search"
+              value={searchValue}
+              onChange={(event) => setSearchValue(event.target.value)}
+              placeholder="Search services or providers..."
+              className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted"
+            />
+
+            <button
+              type="submit"
+              className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+            >
+              <SearchIcon />
+              <span className="hidden sm:inline">Search</span>
+            </button>
+          </form>
+        )}
       </div>
     </header>
   );

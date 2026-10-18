@@ -1,44 +1,36 @@
-# Service Booking and Management Platform
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-## Local setup
+## Getting Started
 
-The backend reads `DATABASE_URL`, `SECRET_KEY`, and optional `ENVIRONMENT` from the environment or a root `.env` file. Use a PostgreSQL database with the asyncpg URL format. Create the combined Alembic migration before starting the API; the model snapshots alone do not create database tables.
+First, run the development server:
 
-From the repository root in PowerShell:
-
-```powershell
-py -m venv backend\venv
-backend\venv\Scripts\Activate.ps1
-pip install -r backend\requirements.txt
-uvicorn main:app --app-dir backend --reload
-```
-
-Install and run the frontend in a second terminal:
-
-```powershell
-Set-Location frontend
-npm install
+```bash
 npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
 ```
 
-For local API-backed frontend pages, create `frontend/.env.local` with:
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-```text
-NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
-NEXT_PUBLIC_USE_MOCK=false
-NEXT_PUBLIC_DEBUG_USER_ID=<local-user-uuid>
-NEXT_PUBLIC_DEBUG_ROLE=CUSTOMER
-```
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-Use `PROVIDER` for provider pages. The debug headers only work with the development auth stub; replace them with the real authentication flow before deployment. A single browser environment uses one debug role at a time.
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-## Booking background worker
+## Learn More
 
-Run one scheduler process per database, after migrations are applied. From the repository root in a separate terminal:
+To learn more about Next.js, take a look at the following resources:
 
-```powershell
-$env:PYTHONPATH = (Join-Path (Get-Location) "backend")
-python -m services.booking_scheduler
-```
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-The worker expires unpaid holds and creates appointment reminders about 24 hours before appointments. Configure `BOOKING_SCHEDULER_INTERVAL_SECONDS` and `BOOKING_REMINDER_LEAD_HOURS` if needed. The defaults are 60 seconds and 24 hours.
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

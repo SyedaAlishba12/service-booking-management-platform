@@ -52,16 +52,17 @@ export default function DashboardLayout({
       />
 
       <div className="min-h-screen lg:pl-[264px]">
-        <DashboardHeader
-          title={title}
-          description={description}
-          breadcrumb={breadcrumb}
-          userName={userName ?? user?.full_name}
-          userEmail={userEmail ?? user?.email}
-          notificationCount={notificationCount}
-          actions={actions}
-          onMenuClick={() => setSidebarOpen(true)}
-        />
+       <DashboardHeader
+  title={title}
+  description={description}
+  breadcrumb={breadcrumb}
+  userName={userName ?? user?.full_name}
+  userEmail={userEmail ?? user?.email}
+  notificationCount={notificationCount}
+  actions={actions}
+  onMenuClick={() => setSidebarOpen(true)}
+  searchInDashboard={user?.role === "CUSTOMER"}
+/>
 
         <main className="px-4 pb-10 pt-3 sm:px-6 lg:px-8">
           <div className="mx-auto w-full max-w-[1380px]">
